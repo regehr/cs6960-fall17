@@ -14,6 +14,8 @@ static uint32_t random() {
 }
 
 int main(int argc, char **argv) {
+    int fds[2];
+    
     while(1) {
         printf("%08X\n", random()); 
         sleep(1);
