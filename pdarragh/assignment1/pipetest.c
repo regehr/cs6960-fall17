@@ -39,6 +39,11 @@ rand_chars(size_t num_chars, char* chars) {
  */
 int
 test_pipe(size_t length) {
+    if (length <= 0) {
+        return 0;
+    }
+    printf("Testing pipe with %zd bytes of data...\n", length);
+
     int result = 0;         // Result of the comparison.
     length = length + 1;    // Increased to give space for a terminating byte.
 
@@ -54,7 +59,6 @@ test_pipe(size_t length) {
         // Get some chars to pass through.
         char chars[length];
         rand_chars(length - 1, chars);
-        printf("wrote: %s\n", chars);
         // Write the data through the pipe.
         close(rf);
         write(wf, chars, length);
@@ -65,27 +69,34 @@ test_pipe(size_t length) {
         char buf[length];
         read(rf, buf, length);
         close(rf);
-        printf("read:  %s\n", buf);
-        // Check the data matches.
+        // Check that the data matches.
         char expected[length];
         rand_chars(length - 1, expected);
-        printf("rgen:  %s\n", expected);
         for (int i = 0; i < length; ++i) {
-            if (expected[i] != buf[i]) {
-                printf("%c != %c\n", expected[i], buf[i]);
+            if  (expected[i] == buf[i]) {
+                printf(".");
+            } else {
+                printf("F");
                 result = 1;
             }
         }
+        printf("\n");
+        exit(result);
     }
     return result;
 }
 
 int
 main() {
-    printf("pipetest\n");
+    int result = 0;
+    size_t sizes[] = {1, 2, 4, 8, 32, 128, 512, 1024, 2048, 4095, 4096, 4097, 65535};
+    int length = sizeof(sizes) / sizeof(sizes[0]);
+
     srand( (unsigned) time(NULL) );
 
-    int result = test_pipe(8);
+    for (int i = 0; i < length; ++i) {
+        result |= test_pipe(sizes[i]);
+    }
 
     return result;
 }
