@@ -39,6 +39,7 @@ rand_chars(size_t num_chars, char* chars) {
  */
 int
 test_pipe(size_t length) {
+    int result = 0;         // Result of the comparison.
     length = length + 1;    // Increased to give space for a terminating byte.
 
     // Make the pipe.
@@ -65,8 +66,18 @@ test_pipe(size_t length) {
         read(rf, buf, length);
         close(rf);
         printf("read:  %s\n", buf);
+        // Check the data matches.
+        char expected[length];
+        rand_chars(length - 1, expected);
+        printf("rgen:  %s\n", expected);
+        for (int i = 0; i < length; ++i) {
+            if (expected[i] != buf[i]) {
+                printf("%c != %c\n", expected[i], buf[i]);
+                result = 1;
+            }
+        }
     }
-    return 0;
+    return result;
 }
 
 int
@@ -74,7 +85,7 @@ main(int argc, char * argv[]) {
     printf("pipetest\n");
     srand( (unsigned) time(NULL) );
 
-    test_pipe(8);
+    int result = test_pipe(8);
 
-    return 0;
+    return result;
 }
