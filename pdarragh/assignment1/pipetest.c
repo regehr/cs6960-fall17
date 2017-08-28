@@ -32,12 +32,18 @@ rand_chars(int num_chars, char* chars) {
     }
 }
 
+/*
+ * test_pipe
+ *
+ * Build a pipe, and feed random bytes through it to the other side.
+ */
 int
 test_pipe() {
     // Make the pipe.
     int fds[2];
     pipe(fds);
 
+    // Fork to move data through the pipe.
     if (fork() == 0) {
         // Use the child as the writer.
         // Get some chars to pass through.
