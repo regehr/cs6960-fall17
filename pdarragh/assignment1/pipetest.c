@@ -81,7 +81,7 @@ test_pipe(size_t length) {
 }
 
 int
-main(int argc, char * argv[]) {
+main() {
     printf("pipetest\n");
     srand( (unsigned) time(NULL) );
 
