@@ -5,7 +5,7 @@
 #include <sys/wait.h>
 #include <assert.h>
 
-int main ()
+int one_meg_test ()
 {
   int fds[2];
   pid_t pid;
@@ -46,17 +46,32 @@ int main ()
     close(fds[1]);
     bytes_read = read(fds[0], read_buffer, BUFFER_SIZE);
     printf("Read %d bytes\n", bytes_read);
+
+    // Make sure bytes read == bytes written. 
+    printf("Expecting %d bytes\n", BUFFER_SIZE);
+    assert(BUFFER_SIZE == bytes_read);
+    printf("%d bytes read\n   PASS\n", bytes_read);
+
+    // Make sure buffers match.
+    printf("Expecting buffer contents to match\n");
+    for (i = 0; i < BUFFER_SIZE; ++i)
+    {
+      assert(read_buffer[i] == write_buffer[i]);
+    }
+    printf("Buffer contents match\n  PASS\n");
+
+    return 0;
   }
-
-  for (i = 0; i < BUFFER_SIZE; ++i)
-  {
-    assert(read_buffer[i] == write_buffer[i]);
-  }
-
-  printf("%s\n", read_buffer);
-
-  assert(BUFFER_SIZE == bytes_read);
 }
 
-
-
+int main ()
+{
+  if (one_meg_test() == 0)
+  {
+    printf("one_meg_test - PASSED\n");
+  }
+  else
+  {
+    printf("one_meg_test - FAILED\n");
+  }
+}
