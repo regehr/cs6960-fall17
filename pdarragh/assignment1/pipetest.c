@@ -33,14 +33,38 @@ rand_chars(int num_chars, char* chars) {
 }
 
 int
+test_pipe() {
+    // Make the pipe.
+    int fds[2];
+    pipe(fds);
+
+    if (fork() == 0) {
+        // Use the child as the writer.
+        // Get some chars to pass through.
+        char chars[8];
+        rand_chars(7, chars);
+        printf("wrote: %s\n", chars);
+        // Write the data through the pipe.
+        close(fds[0]);
+        write(fds[1], chars, 8);
+        close(fds[1]);
+    } else {
+        // Use the parent as the reader.
+        close(fds[1]);
+        char buf[8];
+        read(fds[0], buf, 8);
+        close(fds[0]);
+        printf("read: %s\n", buf);
+    }
+    return 0;
+}
+
+int
 main(int argc, char * argv[]) {
     printf("pipetest\n");
     srand( (unsigned) time(NULL) );
 
-    char chars[8];
-    rand_chars(8, chars);
-    printf(chars);
-    printf("\n");
+    test_pipe();
 
     return 0;
 }
