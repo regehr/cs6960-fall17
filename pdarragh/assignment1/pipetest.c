@@ -26,7 +26,7 @@ rand_char() {
  * Populate an existing char array with random characters.
  */
 void
-rand_chars(int num_chars, char* chars) {
+rand_chars(size_t num_chars, char* chars) {
     for (int i = 0; i < num_chars; ++i) {
         chars[i] = rand_char();
     }
@@ -38,29 +38,33 @@ rand_chars(int num_chars, char* chars) {
  * Build a pipe, and feed random bytes through it to the other side.
  */
 int
-test_pipe() {
+test_pipe(size_t length) {
+    length = length + 1;    // Increased to give space for a terminating byte.
+
     // Make the pipe.
     int fds[2];
     pipe(fds);
+    int rf = fds[0];    // Reader.
+    int wf = fds[1];    // Writer.
 
     // Fork to move data through the pipe.
     if (fork() == 0) {
         // Use the child as the writer.
         // Get some chars to pass through.
-        char chars[8];
-        rand_chars(7, chars);
+        char chars[length];
+        rand_chars(length - 1, chars);
         printf("wrote: %s\n", chars);
         // Write the data through the pipe.
-        close(fds[0]);
-        write(fds[1], chars, 8);
-        close(fds[1]);
+        close(rf);
+        write(wf, chars, length);
+        close(wf);
     } else {
         // Use the parent as the reader.
-        close(fds[1]);
-        char buf[8];
-        read(fds[0], buf, 8);
-        close(fds[0]);
-        printf("read: %s\n", buf);
+        close(wf);
+        char buf[length];
+        read(rf, buf, length);
+        close(rf);
+        printf("read:  %s\n", buf);
     }
     return 0;
 }
@@ -70,7 +74,7 @@ main(int argc, char * argv[]) {
     printf("pipetest\n");
     srand( (unsigned) time(NULL) );
 
-    test_pipe();
+    test_pipe(8);
 
     return 0;
 }
