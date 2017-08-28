@@ -49,7 +49,10 @@ test_pipe(size_t length) {
 
     // Make the pipe.
     int fds[2];
-    pipe(fds);
+    if (pipe(fds) < 0) {
+        printf("Error opening pipe.\n");
+        return 1;
+    }
     int rf = fds[0];    // Reader.
     int wf = fds[1];    // Writer.
 
