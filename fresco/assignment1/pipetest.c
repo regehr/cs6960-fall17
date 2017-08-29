@@ -36,6 +36,8 @@ int main(int argc, char **argv) {
         *intOffset = random();
     }
 
+    // TODO: Make snazzy testing framework with more tests. 
+
     printf(STDOUT, pipeTest(stream) ? "Tests have failed\n" : "All tests have passed\n");
     exit();
 }
