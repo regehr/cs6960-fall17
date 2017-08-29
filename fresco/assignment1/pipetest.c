@@ -36,15 +36,11 @@ int main(int argc, char **argv) {
         *intOffset = random();
     }
 
-    if (pipeTest(stream)) {
-        printf(STDOUT, "Failed\n");
-    } else {
-        printf(STDOUT, "Success\n");
-    }
-
+    printf(STDOUT, pipeTest(stream) ? "Tests have failed\n" : "All tests have passed\n");
     exit();
 }
 
+/* Tests random sized reads and writes */
 int pipeTest(char *stream) {
     int fds[2];
     int pid;
@@ -58,12 +54,10 @@ int pipeTest(char *stream) {
     /* Parent */
     if ((pid = fork())) {
         int bytesLeft = 1024;
-
         char buf[1024];
 
         int randRead;
-        while (!(randRead = (random() & 32)));
-
+        while (!(randRead = (random() & 32))); // Avoid reading 0 bytes
         while (bytesLeft > 0) {
             int bytesRead = read(fds[0], &buf[1024-bytesLeft], randRead > bytesLeft ? bytesLeft : randRead);  
             if (bytesRead == -1) { break; }
@@ -84,7 +78,6 @@ int pipeTest(char *stream) {
         /* Test: Data was written correctly and read out in order */
         for (int i = 0; i < 1024; i++) {
             if (buf[i] != stream[i]) {
-
                 printf(STDOUT, "Failed: Bytes written to buffer did not match the initial stream\n");
                 return FAILED;
             }
@@ -99,7 +92,7 @@ int pipeTest(char *stream) {
         int bytesLeft = 1024;
 
         int randWrite;
-        while (!(randWrite = (randomC() & 32)));
+        while (!(randWrite = (randomC() & 32))); // Avoid writing 0 bytes
         while (bytesLeft > 0) {
             bytesLeft -= write(fds[1], &stream[1024-bytesLeft], randWrite > bytesLeft ? bytesLeft : randWrite);
         }
