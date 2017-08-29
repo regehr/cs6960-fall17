@@ -4,17 +4,29 @@
 #include <time.h>
 
 /*
+ * rand_int
+ *
+ * Generate a random int up to the given value. This range includes 0 and the
+ * given value.
+ *
+ * This method of producing a random number on a range does not guarantee an
+ * equal distribution along the entire range, but for our purposes it should
+ * be fine.
+ */
+int
+rand_int(int max) {
+    return rand() % (max + 1);    // Generate a random number on [0, max].
+}
+
+/*
  * rand_char
  *
  * Generate a random ASCII character in the decimal range [33, 126] (because
  * these are easy to read when printed).
- *
- * This method does not produce a perfectly equal distribution among all
- * possible characters, but that's okay for this program.
  */
 char
 rand_char() {
-    int dec = rand() % 94;  // Generate a random number on [0, 93].
+    int dec = rand_int(93);
     dec += 33;              // Add 33 to make the range [33, 126].
     char c = (char) dec;
     return c;
