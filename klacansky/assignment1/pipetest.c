@@ -28,7 +28,13 @@ pipe semantics:
 #define assert(x) {if (!(x)) exit();}
 #endif
 
-#include "std.h"
+
+static unsigned int
+s_rand(unsigned int *const randstate)
+{
+        *randstate = (*randstate)*1664525 + 1013904223;
+        return *randstate;
+}
 
 
 
