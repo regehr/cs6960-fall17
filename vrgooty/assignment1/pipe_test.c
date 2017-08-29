@@ -1,3 +1,11 @@
+/*****
+ * Attribution:
+ * The design was simplified after looking at other submissions.
+ * Initially I thought of using files instead of buf_write and buf_read.
+ * Later after looking at others submissions I used buffers which
+ * simplified my code drastically.
+*****/
+
 #include "types.h"
 #include "user.h"
 #include "stat.h"
@@ -47,7 +55,7 @@ int main(){
 		close(p[1]);
 	}
 	else if(pid > 0){
-		// Parent process reads from the file.
+		// Parent process reads from the pipe.
 		close(p[1]);
 
 		int index = 0;
