@@ -1,2 +1,2 @@
-# cs6960-fall17
-repo for advanced OS, fall 2017, U of Utah
+# cs6960-Advanced OS, fall 2017, U of Utah
+Directory of homework submissions for Alan Humphrey 
