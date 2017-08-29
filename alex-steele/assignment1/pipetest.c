@@ -1,7 +1,7 @@
 
 // pipetest.c by Alex Steele
 //   - one reader and one writer process
-//   - (8192 * (8192 + 1) / 2) / 5 = ~6.7 MB written/read
+//   - (8192 * (8192 + 1) / 2) / 5 = ~6.7 Mb written/read
 //   - read and write sizes vary from 1 to 8192 and are decoupled
 //   - all bytes read are checked to match those written
 
@@ -74,8 +74,7 @@ main(void)
         }
       }
       rsize += 31;
-      rsize %= sizeof(data) + 1;
-      if (rsize == 0) {
+      if (rsize > sizeof(data)) {
         rsize = 1;
       }
     }
