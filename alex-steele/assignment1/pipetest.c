@@ -11,6 +11,8 @@
 
 char data[8192];
 
+int total_bytes = 6713344;
+
 void
 error(char *msg)
 {
@@ -25,7 +27,8 @@ main(void)
   int pid;
   int i, nw, n;
   int wsize, rsize;
-  int expected;
+  int next_byte;
+  int total_read;
 
   printf(1, "pipe test\n");
   if (pipe(fds) != 0) {
@@ -59,18 +62,20 @@ main(void)
     if (close(fds[1])) {
       error("close() failed\n");
     }
+    total_read = 0;
     rsize = 1;
     wsize = 1;
-    expected = 0;
+    next_byte = 0;
     while ((n = read(fds[0], data, rsize)) > 0) {
+      total_read += n;
       for (i = 0; i < n; i++) {
-        if (data[i] != (expected % 128)) {
+        if (data[i] != (next_byte % 128)) {
           error("FAIL - read incorrect byte\n");
         }
-        expected++;
-        if (expected == wsize) {
+        next_byte++;
+        if (next_byte == wsize) {
           wsize += 5;
-          expected = 0;
+          next_byte = 0;
         }
       }
       rsize += 31;
@@ -81,7 +86,7 @@ main(void)
     if (n < 0) {
       error("read() failed\n");
     }
-    if (wsize != 8196) {
+    if (total_read != total_bytes) {
       error("FAIL - read too few bytes\n");
     }
     if (close(fds[0])) {
