@@ -38,7 +38,7 @@ rand_char() {
  * Populate an existing char array with random characters.
  */
 void
-rand_chars(size_t num_chars, char* chars) {
+rand_chars(int num_chars, char* chars) {
     for (int i = 0; i < num_chars; ++i) {
         chars[i] = rand_char();
     }
@@ -50,11 +50,11 @@ rand_chars(size_t num_chars, char* chars) {
  * Build a pipe, and feed random bytes through it to the other side.
  */
 int
-test_pipe(size_t length) {
+test_pipe(int length) {
     if (length <= 0) {
         return 0;
     }
-    printf("Testing pipe with %zd bytes of data...\n", length);
+    printf("Testing pipe with %d bytes of data...\n", length);
 
     int result = 0;         // Result of the comparison.
     length = length + 1;    // Increased to give space for a terminating byte.
@@ -71,23 +71,23 @@ test_pipe(size_t length) {
     // Fork to move data through the pipe.
     if (fork() == 0) {
         // Use the child as the writer.
+        // Write the data through the pipe.
+        close(rf);
         // Get some chars to pass through.
         char chars[length];
         rand_chars(length - 1, chars);
-        // Write the data through the pipe.
-        close(rf);
-        write(wf, chars, length);
+        write(wf, chars, (size_t)length);
         close(wf);
     } else {
         // Use the parent as the reader.
         close(wf);
         char buf[length];
-        read(rf, buf, length);
+        read(rf, buf, (size_t)length);
         close(rf);
         // Check that the data matches.
         char expected[length];
         rand_chars(length - 1, expected);
-        for (int i = 0; i < length; ++i) {
+        for (int i = 0; i < length - 1; ++i) {
             if  (expected[i] == buf[i]) {
                 printf(".");
             } else {
@@ -104,12 +104,11 @@ test_pipe(size_t length) {
 int
 main() {
     int result = 0;
-    size_t sizes[] = {1, 2, 4, 8, 32, 128, 512, 1024, 2048, 4095, 4096, 4097, 65535};
+    int sizes[] = {1, 2, 4, 8, 32, 128, 512, 1024, 2048, 4095, 4096, 4097, 65535};
     int length = sizeof(sizes) / sizeof(sizes[0]);
 
-    srand( (unsigned) time(NULL) );
-
     for (int i = 0; i < length; ++i) {
+        srand( (unsigned) time(NULL) );
         result |= test_pipe(sizes[i]);
     }
 
