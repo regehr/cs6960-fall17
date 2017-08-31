@@ -25,7 +25,6 @@ void one_meg_test ()
 
   char* write_buffer = (char*) malloc (BUFFER_SIZE);
   char* read_buffer = (char*) malloc (BUFFER_SIZE);
-
   int i;
   for(i = 0; i < BUFFER_SIZE; ++i)
   {
@@ -89,6 +88,5 @@ void one_meg_test ()
 int main ()
 {
   one_meg_test();
-
   return 0;
 }
