@@ -66,7 +66,7 @@ int main() {
             unsigned int * buf_loc = buf;
             while (num_pushed < number_to_push) {
 			  int num_written = write(p[1], buf_loc, (number_to_push - num_pushed) * sizeof(int));
-              printf(1, "wrote %d bytes\n", num_written);
+              //printf(1, "wrote %d bytes\n", num_written);
 
 			  if (num_written < 0) {
 				printf(2, "Failure writing to pipe.\n");
@@ -106,7 +106,7 @@ int main() {
 
 			// Read the data.
 			int num_read = read(p[0], buf, number_to_read * sizeof(int));
-            printf(1, "read %d bytes\n", num_read);
+            //printf(1, "read %d bytes\n", num_read);
 
             // If something went wrong with the pipe, exit.
 			if (num_read < 0) {
