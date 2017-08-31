@@ -77,6 +77,20 @@ test_pipe(int length) {
         char chars[length];
         rand_chars(length - 1, chars);
         write(wf, chars, (size_t)length);
+//        int written = 0;
+//        int to_write;
+//        int diff;
+//        while (written < length) {
+//            diff = length - written;
+//            to_write = rand_int(diff - 1) + 1;  // Pick a number of bytes to write on [1, diff].
+//            char chars[to_write];
+//            rand_chars(to_write, chars);        // Generate some random characters to write.
+//            printf("wrote: %s\n", chars);
+//            write(wf, chars, (size_t)to_write);
+//            written += to_write;
+//        }
+//        char empty[0];
+//        write(wf, empty, 1); // Append a null character to the pipe.
         close(wf);
     } else {
         // Use the parent as the reader.
