@@ -11,9 +11,8 @@
 #define PIPESIZE 512
 
 struct pipe {
-  char data[PIPESIZE];
-  void *buf_end;
   struct spinlock lock;
+  char data[PIPESIZE];
   uint nread;     // number of bytes read
   uint nwrite;    // number of bytes written
   int readopen;   // read fd is still open
@@ -35,8 +34,6 @@ pipealloc(struct file **f0, struct file **f1)
   p->writeopen = 1;
   p->nwrite = 0;
   p->nread = 0;
-  // Place a pointer to the end of the buffer so we know when to wrap.
-  p->buf_end = (void *) &p->data + PIPESIZE;
   initlock(&p->lock, "pipe");
   (*f0)->type = FD_PIPE;
   (*f0)->readable = 1;
@@ -81,54 +78,23 @@ pipeclose(struct pipe *p, int writable)
 int
 pipewrite(struct pipe *p, char *addr, int n)
 {
+  int i;
+
   acquire(&p->lock);
-  while(p->nwrite == p->nread + PIPESIZE){  //DOC: pipewrite-full
-    if(p->readopen == 0 || myproc()->killed){
-      release(&p->lock);
-      return -1;
+  for(i = 0; i < n; i++){
+    while(p->nwrite == p->nread + PIPESIZE){  //DOC: pipewrite-full
+      if(p->readopen == 0 || myproc()->killed){
+        release(&p->lock);
+        return -1;
+      }
+      wakeup(&p->nread);
+      sleep(&p->nwrite, &p->lock);  //DOC: pipewrite-sleep
     }
-    wakeup(&p->nread);
-    sleep(&p->nwrite, &p->lock);  //DOC: pipewrite-sleep
+    p->data[p->nwrite++ % PIPESIZE] = addr[i];
   }
-
-  // Determine how much data we can write.
-  int buffer_space = PIPESIZE - (p->nwrite - p->nread);
-
-  int num_to_write = n;
-  if (num_to_write > buffer_space) {
-      num_to_write = buffer_space;
-  }
-
-  int write_position = p->nwrite % PIPESIZE;
-  int read_position = p->nread % PIPESIZE;
-
-  // If the space is "outside" of the two positions (write to right of read)
-  if (write_position >= read_position) {
-    // Determine the amount of data we can write before we wrap.
-    int cont_space = p->buf_end - ((void *) p->data + write_position);
-    if (num_to_write < cont_space) {
-      cont_space = num_to_write;
-    }
-    
-    // Write the data up to the end of the buffer (or the end of data)
-    memmove(p->data + write_position, addr, cont_space);
-
-    // Copy any additional bytes at the beginning of the buffer.
-    int remaining_to_copy = num_to_write - cont_space;
-    if (remaining_to_copy > 0) {
-      memmove(p->data, addr + cont_space, remaining_to_copy);
-    }
-
-  // If the space is "inside" of the two positions (write to left of read)
-  } else {
-    memmove(p->data + write_position, addr, num_to_write);
-  }
-
-  p->nwrite += num_to_write;
-    
   wakeup(&p->nread);  //DOC: pipewrite-wakeup1
   release(&p->lock);
-  return num_to_write;
+  return n;
 }
 
 int
