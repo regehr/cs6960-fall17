@@ -8,7 +8,7 @@
 #include "sleeplock.h"
 #include "file.h"
 
-#define PIPESIZE 512
+#define PIPESIZE 3516
 
 void my_memcpy(void *dest, const void *src, unsigned int count)
 {
