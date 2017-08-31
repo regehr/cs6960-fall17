@@ -100,15 +100,17 @@ pipewrite(struct pipe *p, char *addr, int n)
   }
 
   int write_position = p->nwrite % PIPESIZE;
-  int read_position = p->nwrite % PIPESIZE;
+  int read_position = p->nread % PIPESIZE;
 
-  // Determine how much of the space in the buffer is after the nwrite pointer.
+  // If the space is "outside" of the two positions (write to right of read)
   if (write_position >= read_position) {
+    // Determine the amount of data we can write before we wrap.
     int cont_space = p->buf_end - ((void *) p->data + write_position);
     if (num_to_write < cont_space) {
       cont_space = num_to_write;
     }
     
+    // Write the data up to the end of the buffer (or the end of data)
     memmove(p->data + write_position, addr, cont_space);
 
     // Copy any additional bytes at the beginning of the buffer.
@@ -117,13 +119,9 @@ pipewrite(struct pipe *p, char *addr, int n)
       memmove(p->data, addr + cont_space, remaining_to_copy);
     }
 
+  // If the space is "inside" of the two positions (write to left of read)
   } else {
-    int cont_space = (p->data + read_position) - (p->data + write_position);
-    if (num_to_write < cont_space) {
-      cont_space = num_to_write;
-    }
-    
-    memmove(p->data + (p->nwrite % PIPESIZE), addr, cont_space);
+    memmove(p->data + write_position, addr, num_to_write);
   }
 
   p->nwrite += num_to_write;
