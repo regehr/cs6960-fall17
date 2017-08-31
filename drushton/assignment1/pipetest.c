@@ -1,77 +1,94 @@
-#include <stdlib.h>
-#include <stdio.h>
-#include <unistd.h>
-#include <sys/types.h>
-#include <sys/wait.h>
-#include <assert.h>
+#include "types.h"
+#include "user.h"
 
-int one_meg_test ()
+void assert(int x, int n) 
+{
+  if(!x)
+  {
+    printf(1, "assertion %d failed, exiting\n", n);
+    exit();
+  }
+}
+
+void one_meg_test ()
 {
   int fds[2];
-  pid_t pid;
+  int pid;
   int BUFFER_SIZE = 1024*1024;
   int bytes_read = 0;
 
   if (pipe(fds) != 0) 
   { 
-     perror("pipe"); 
-     exit(1); 
+     printf(1, "Error opening pipe\n"); 
+     exit(); 
   } 
 
   char* write_buffer = (char*) malloc (BUFFER_SIZE);
   char* read_buffer = (char*) malloc (BUFFER_SIZE);
-  
+
   int i;
   for(i = 0; i < BUFFER_SIZE; ++i)
   {
-    write_buffer[i] = (unsigned char) (rand() % 255);
+    unsigned int s = 1;
+    s ^= s << 13;
+    s ^= s >> 17;
+    s ^= s << 5;
+    write_buffer[i] = s;
   }
 
   if ((pid = fork()) == -1)
   {
-    perror("fork");
-    exit(1);
+    printf(1, "Error forking\n");
+    exit();
   }
  
   if (pid == 0)
   {
     close(fds[0]);
     int bytes_written = 0;
-    bytes_written = write(fds[1], write_buffer, BUFFER_SIZE);
-    assert(bytes_written == BUFFER_SIZE);
-    exit(0);
+    bytes_written += write(fds[1], write_buffer, BUFFER_SIZE);
+    printf(1, "%d bytes written to pipe\n", bytes_written);
+    exit();
   }
   else
   {
     close(fds[1]);
-    bytes_read = read(fds[0], read_buffer, BUFFER_SIZE);
-    printf("Read %d bytes\n", bytes_read);
+    char buffer[512];
+    int buff_read = 0;
+    while (bytes_read < BUFFER_SIZE)
+    {
+      buff_read = read(fds[0], buffer, 512);
+      for (int i = 0; i < buff_read; ++i)
+      {
+        read_buffer[bytes_read++] = buffer[i];
+      }
+    }
+    printf(1, "Read %d bytes\n", bytes_read);
 
     // Make sure bytes read == bytes written. 
-    printf("Expecting %d bytes\n", BUFFER_SIZE);
-    assert(BUFFER_SIZE == bytes_read);
-    printf("%d bytes read\n   PASS\n", bytes_read);
+    printf(1, "Expecting %d bytes\n", BUFFER_SIZE);
+    if (bytes_read != BUFFER_SIZE)
+    {
+      printf(1, "Bytes read %d\n", bytes_read);
+    }
 
     // Make sure buffers match.
-    printf("Expecting buffer contents to match\n");
+    printf(1, "Expecting buffer contents to match\n");
     for (i = 0; i < BUFFER_SIZE; ++i)
     {
-      assert(read_buffer[i] == write_buffer[i]);
+      if (read_buffer[i] !=  write_buffer[i])
+      {
+        printf(1, "Buffers do not match on %dth element, FAIL\n", i);
+      }
     }
-    printf("Buffer contents match\n  PASS\n");
-
-    return 0;
+    wait();
   }
+  printf(1, "Passed 1MB test\n");
 }
 
 int main ()
 {
-  if (one_meg_test() == 0)
-  {
-    printf("one_meg_test - PASSED\n");
-  }
-  else
-  {
-    printf("one_meg_test - FAILED\n");
-  }
+  one_meg_test();
+
+  return 0;
 }
