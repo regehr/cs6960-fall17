@@ -59,7 +59,7 @@ int pipeTest(char *stream) {
         char buf[1024];
 
         int randRead;
-        while (!(randRead = (random() & 32))); // Avoid reading 0 bytes
+        while (!(randRead = (random() & 31))); // Avoid reading 0 bytes
         while (bytesLeft > 0) {
             int bytesRead = read(fds[0], &buf[1024-bytesLeft], randRead > bytesLeft ? bytesLeft : randRead);  
             if (bytesRead == -1) { break; }
@@ -94,7 +94,7 @@ int pipeTest(char *stream) {
         int bytesLeft = 1024;
 
         int randWrite;
-        while (!(randWrite = (randomC() & 32))); // Avoid writing 0 bytes
+        while (!(randWrite = (randomC() & 31))); // Avoid writing 0 bytes
         while (bytesLeft > 0) {
             bytesLeft -= write(fds[1], &stream[1024-bytesLeft], randWrite > bytesLeft ? bytesLeft : randWrite);
         }
