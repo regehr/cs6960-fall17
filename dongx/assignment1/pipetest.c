@@ -47,9 +47,9 @@ pipe1(void) {
         //Parent process: reader
         close(pipe_fds[1]);
         int len, bufout_cnt;
-        char buf[512];
+        char buf[2048];
         bufout_cnt = 0;
-        while ((len = read(pipe_fds[0], buf, 512)) > 0)
+        while ((len = read(pipe_fds[0], buf, N)) > 0)
             for (i = 0; i < len; ++i) 
                 bufout[bufout_cnt++] = buf[i];
 
