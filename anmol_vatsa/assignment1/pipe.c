@@ -33,8 +33,8 @@ void my_memcpy(void *dest, const void *src, unsigned int count)
 }
 
 struct pipe {
-  struct spinlock lock;
   char data[PIPESIZE];
+  struct spinlock lock;
   uint nread;     // number of bytes read
   uint nwrite;    // number of bytes written
   int readopen;   // read fd is still open
