@@ -94,13 +94,12 @@ pipewrite(struct pipe *p, char *addr, int n)
       wakeup(&p->nread);
       sleep(&p->nwrite, &p->lock);  //DOC: pipewrite-sleep
     }
-    int pipeavail = p->nwrite - p->nread + PIPESIZE;
+    int pipeavail = PIPESIZE - (p->nwrite - p->nread);
     int pipe_avail_til_wrap = PIPESIZE - (p->nwrite % PIPESIZE);
-    int pipe_n_now = min(min(pipeavail, pipe_avail_til_wrap), n);
-    memmove(p->data + (p->nwrite % PIPESIZE), addr+i, pipe_n_now);
+    int pipe_n_now = min(min(pipeavail, pipe_avail_til_wrap), n-i);
+    memmove(&(p->data[p->nwrite % PIPESIZE]), &addr[i], pipe_n_now);
     p->nwrite += pipe_n_now;
     i += pipe_n_now;
-    //p->data[p->nwrite++ % PIPESIZE] = addr[i];
   }
   wakeup(&p->nread);  //DOC: pipewrite-wakeup1
   release(&p->lock);
@@ -110,8 +109,6 @@ pipewrite(struct pipe *p, char *addr, int n)
 int
 piperead(struct pipe *p, char *addr, int n)
 {
-  //int i;
-
   acquire(&p->lock);
   while(p->nread == p->nwrite && p->writeopen){  //DOC: pipe-empty
     if(myproc()->killed){
@@ -123,17 +120,9 @@ piperead(struct pipe *p, char *addr, int n)
   int pipeavail = p->nwrite - p->nread;
   int pipe_avail_til_wrap = PIPESIZE - (p->nread % PIPESIZE);
   int pipe_n_now = min(min(pipeavail, pipe_avail_til_wrap), n);
-  memmove(addr, p->data + (p->nread % PIPESIZE), pipe_n_now);
+  memmove(addr, &(p->data[p->nread % PIPESIZE]), pipe_n_now);
   p->nread += pipe_n_now;
-  /*
-  for(i = 0; i < n; i++){  //DOC: piperead-copy
-    if(p->nread == p->nwrite)
-      break;
-    addr[i] = p->data[p->nread++ % PIPESIZE];
-  }
-  */
   wakeup(&p->nwrite);  //DOC: piperead-wakeup
   release(&p->lock);
   return pipe_n_now;
-  //return i;
 }
