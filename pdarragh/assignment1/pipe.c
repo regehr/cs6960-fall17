@@ -96,8 +96,12 @@ pipewrite(struct pipe *p, char *addr, int n) {
 
 int
 piperead(struct pipe *p, char *addr, int n) {
-    int i;
+    int ncopy;  // number of bytes copied
+    int scopy;  // second number of bytes copied (if needed)
+    int beg;    // beginning of filled data
+    int end;    // end of filled data
 
+    // Spin until writing is done.
     acquire(&p->lock);
     while (p->nread == p->nwrite && p->writeopen) {  //DOC: pipe-empty
         if (myproc()->killed) {
@@ -106,12 +110,49 @@ piperead(struct pipe *p, char *addr, int n) {
         }
         sleep(&p->nread, &p->lock); //DOC: piperead-sleep
     }
-    for (i = 0; i < n; i++) {  //DOC: piperead-copy
-        if (p->nread == p->nwrite)
-            break;
-        addr[i] = p->data[p->nread++ % PIPESIZE];
+    // Find where the written data begins and ends.
+    beg = p->nread % PIPESIZE;
+    end = p->nwrite % PIPESIZE;
+    if (end - beg < 0) {
+        // The buffer wraps around. Two copies must be done.
+        // First, copy from the beginning to the end of the buffer.
+        ncopy = PIPESIZE - beg;
+        if (n < ncopy) {
+            // We were asked to copy fewer bytes than are available.
+            ncopy = n;
+            memmove(addr, p->data + beg, ncopy);
+        } else {
+            // Copy all bites in first segment.
+            memmove(addr, p->data + beg, ncopy);
+            // Then, copy from the beginning of the buffer to the end of the write.
+            scopy = end - PIPESIZE;
+            if (n < ncopy + scopy) {
+                // Check if we were asked to copy fewer bytes than are available.
+                scopy = n - ncopy;
+            }
+            memmove(addr + ncopy, p->data, scopy);
+            ncopy += scopy;
+        }
+    } else {
+        // TODO: Remove this.
+        int i;
+        for (i = 0; i < n; i++) {  //DOC: piperead-copy
+            if (p->nread == p->nwrite)
+                break;
+            addr[i] = p->data[p->nread++ % PIPESIZE];
+        }
+        ncopy = i;
+//        // TODO: This doesn't work at the moment.
+//        // There is no overlap, so only one copy is needed.
+//        ncopy = end - beg;
+//        if (n < ncopy) {
+//            ncopy = n;
+//        }
+//        memmove(addr, p->data + beg, ncopy);
     }
+
+    // Release hold; allow writing.
     wakeup(&p->nwrite);  //DOC: piperead-wakeup
     release(&p->lock);
-    return i;
+    return ncopy;
 }
