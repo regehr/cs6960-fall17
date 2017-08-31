@@ -61,15 +61,22 @@ int main() {
 				current_data = rand(current_data) % MAX_SEND;
 			}
 
-			// Write the data.
-			int num_written = write(p[1], buf, number_to_push * sizeof(int));
+			// Continue writing the data until the buffer has been consumed.
+            int num_pushed = 0;
+            unsigned int * buf_loc = buf;
+            while (num_pushed < number_to_push) {
+			  int num_written = write(p[1], buf_loc, (number_to_push - num_pushed) * sizeof(int));
+              printf(1, "wrote %d bytes\n", num_written);
 
-			if (num_written < 0) {
+			  if (num_written < 0) {
 				printf(2, "Failure writing to pipe.\n");
 				exit();
-			}
+			  }
+              buf_loc += num_written;
+              num_pushed += num_written / sizeof(int);
+            }
 
-			bytes_sent += num_written;
+			bytes_sent += number_to_push;
 		}
 		
         // Close the write end of the pipe.
@@ -99,6 +106,7 @@ int main() {
 
 			// Read the data.
 			int num_read = read(p[0], buf, number_to_read * sizeof(int));
+            printf(1, "read %d bytes\n", num_read);
 
             // If something went wrong with the pipe, exit.
 			if (num_read < 0) {
