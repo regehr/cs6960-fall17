@@ -7,6 +7,8 @@
 #include "proc.h"
 #include "spinlock.h"
 
+#define NULL 0
+
 struct {
     struct spinlock lock;
     struct proc proc[NPROC];
@@ -21,6 +23,84 @@ extern void forkret(void);
 extern void trapret(void);
 
 static void wakeup1(void *chan);
+
+/*****************************
+ *
+ * LINKED LIST FUNCTIONS
+ *
+ */
+
+void
+init_list(struct proc_list * list, struct proc * p) {
+    list->head = p;
+    list->tail = p;
+    list->empty = 0;
+}
+
+void
+prepend_proc(struct proc_list * list, struct proc * p) {
+    if (list->empty) {
+        // New element is the only element.
+        init_list(list, p);
+    } else {
+        // New element should be added to the front.
+        struct proc * next = list->head;
+        next->prev = p;
+        p->next = next;
+        list->head = p;
+    }
+}
+
+void
+append_proc(struct proc_list * list, struct proc * p) {
+    if (list->empty) {
+        // New element is the only element.
+        init_list(list, p);
+    } else {
+        // New element should be added to the end.
+        struct proc * prev = list->tail;
+        prev->next = p;
+        p->prev = prev;
+        list->tail = p;
+    }
+}
+
+void
+remove_proc(struct proc * p) {
+    if (p == NULL) {
+        return;
+    }
+    struct proc * prev = p->prev;
+    struct proc * next = p->next;
+    if (prev != NULL) {
+        prev->next = next;
+    }
+    if (next != NULL) {
+        next->prev = prev;
+    }
+    p->prev = NULL;
+    p->next = NULL;
+}
+
+struct proc *
+remove_head_proc(struct proc_list * list) {
+    struct proc * p = list->head;
+    remove_proc(p);
+    return p;
+}
+
+struct proc *
+remove_tail_proc(struct proc_list * list) {
+    struct proc * p = list->tail;
+    remove_proc(p);
+    return p;
+}
+
+/*****************************
+ *
+ * END OF LINKED LIST FUNCTIONS
+ *
+ */
 
 void
 pinit(void) {
