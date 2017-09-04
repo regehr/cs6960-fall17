@@ -10,6 +10,8 @@
 struct {
   struct spinlock lock;
   struct proc proc[NPROC];
+  struct proc * first_ready;
+  struct proc * last_ready;
 } ptable;
 
 static struct proc *initproc;
@@ -24,6 +26,59 @@ void
 pinit(void)
 {
   initlock(&ptable.lock, "ptable");
+  
+  ptable.first_ready = 0;
+  ptable.last_ready = 0;
+}
+
+void 
+make_proc_ready_nolock(struct proc * proc) {
+  proc->state = RUNNABLE;
+
+  proc->next_ready = ptable.first_ready;
+
+  if (ptable.first_ready != 0) {
+    ptable.first_ready->prev_ready = proc;
+  }
+
+  if (ptable.last_ready == 0) {
+    ptable.last_ready = proc;
+  }
+
+  ptable.first_ready = proc;
+}
+
+void
+make_proc_ready(struct proc * proc) {
+  acquire(&ptable.lock);
+
+  make_proc_ready_nolock(proc);
+  
+  release(&ptable.lock);
+}
+
+struct proc *
+get_ready_proc(void) {
+  // If the list is empty, return NULL.
+  if (ptable.last_ready == 0) {
+    return 0;
+  }     
+
+  struct proc * return_proc = ptable.last_ready;
+  struct proc * prev_proc = return_proc->prev_ready;
+
+  ptable.last_ready = prev_proc;
+
+  // If there is no previous proc, this proc was the first one.
+  if (prev_proc == 0) {
+    ptable.first_ready = 0;
+  } else {
+    prev_proc->next_ready = 0;
+  }
+
+  return_proc->prev_ready = 0;
+
+  return return_proc;
 }
 
 // Must be called with interrupts disabled
@@ -112,6 +167,10 @@ found:
   memset(p->context, 0, sizeof *p->context);
   p->context->eip = (uint)forkret;
 
+  // Initialize ready queue pointers.
+  p->next_ready = 0;
+  p->prev_ready = 0;
+
   return p;
 }
 
@@ -146,11 +205,7 @@ userinit(void)
   // run this process. the acquire forces the above
   // writes to be visible, and the lock is also needed
   // because the assignment might not be atomic.
-  acquire(&ptable.lock);
-
-  p->state = RUNNABLE;
-
-  release(&ptable.lock);
+  make_proc_ready(p);
 }
 
 // Grow current process's memory by n bytes.
@@ -212,11 +267,7 @@ fork(void)
 
   pid = np->pid;
 
-  acquire(&ptable.lock);
-
-  np->state = RUNNABLE;
-
-  release(&ptable.lock);
+  make_proc_ready(np);
 
   return pid;
 }
@@ -330,27 +381,52 @@ scheduler(void)
     // Enable interrupts on this processor.
     sti();
 
-    // Loop over process table looking for process to run.
     acquire(&ptable.lock);
-    for(p = ptable.proc; p < &ptable.proc[NPROC]; p++){
-      if(p->state != RUNNABLE)
-        continue;
+
+    // Attempt to retrieve a process.
+    p = get_ready_proc();
+    if (p == 0) {
+      release(&ptable.lock);
+      continue;
+    }
+    
+    // Switch to chosen process.  It is the process's job
+    // to release ptable.lock and then reacquire it
+    // before jumping back to us.
+    c->proc = p;
+    switchuvm(p);
+    p->state = RUNNING;
+
+    swtch(&(c->scheduler), p->context);
+    switchkvm();
+
+    // Process is done running for now.
+    // It should have changed its p->state before coming back.
+    c->proc = 0;
+
+    release(&ptable.lock);
+
+    // Loop over process table looking for process to run.
+    // acquire(&ptable.lock);
+    // for(p = ptable.proc; p < &ptable.proc[NPROC]; p++){
+      // if(p->state != RUNNABLE)
+        // continue;
 
       // Switch to chosen process.  It is the process's job
       // to release ptable.lock and then reacquire it
       // before jumping back to us.
-      c->proc = p;
-      switchuvm(p);
-      p->state = RUNNING;
+      // c->proc = p;
+      // switchuvm(p);
+      // p->state = RUNNING;
 
-      swtch(&(c->scheduler), p->context);
-      switchkvm();
+      // swtch(&(c->scheduler), p->context);
+      // switchkvm();
 
       // Process is done running for now.
       // It should have changed its p->state before coming back.
-      c->proc = 0;
-    }
-    release(&ptable.lock);
+      // c->proc = 0;
+    // }
+    // release(&ptable.lock);
 
   }
 }
@@ -386,7 +462,8 @@ void
 yield(void)
 {
   acquire(&ptable.lock);  //DOC: yieldlock
-  myproc()->state = RUNNABLE;
+  make_proc_ready_nolock(myproc());
+  //myproc()->state = RUNNABLE;
   sched();
   release(&ptable.lock);
 }
@@ -461,7 +538,8 @@ wakeup1(void *chan)
 
   for(p = ptable.proc; p < &ptable.proc[NPROC]; p++)
     if(p->state == SLEEPING && p->chan == chan)
-      p->state = RUNNABLE;
+      make_proc_ready_nolock(p);
+      //p->state = RUNNABLE;
 }
 
 // Wake up all processes sleeping on chan.
@@ -487,7 +565,8 @@ kill(int pid)
       p->killed = 1;
       // Wake process from sleep if necessary.
       if(p->state == SLEEPING)
-        p->state = RUNNABLE;
+        make_proc_ready_nolock(p);
+        //p->state = RUNNABLE;
       release(&ptable.lock);
       return 0;
     }
