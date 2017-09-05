@@ -78,16 +78,16 @@ pipeclose(struct pipe *p, int writable)
 void*
 my_memcpy(void *dst, const void *src, uint n)
 {
-  const char *s;
-  char *d;
+  	const char *s;
+  	char *d;
 
-  s = src;
-  d = dst;
+  	s = src;
+  	d = dst;
 
 	for (int i = 0; i < n; ++i){
     	d[i] = s[i];
 	}
-   return d;
+	return d;
 }
 
 //PAGEBREAK: 40
