@@ -97,6 +97,8 @@ dequeue(struct proc_queue * q) {
 void
 pinit(void) {
     initlock(&ptable.lock, "ptable");
+    // Initialize ready queue.
+    (&ptable.ready)->empty = 1;
 }
 
 // Must be called with interrupts disabled
@@ -148,9 +150,6 @@ allocproc(void) {
     char *sp;
 
     acquire(&ptable.lock);
-
-    // Initialize ready queue.
-    (&ptable.ready)->empty = 1;
 
     for (p = ptable.proc; p < &ptable.proc[NPROC]; p++)
         if (p->state == UNUSED)
