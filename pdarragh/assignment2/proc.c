@@ -8,6 +8,14 @@
 #include "spinlock.h"
 
 #define NULL 0
+#define DEBUG 0
+
+void
+debugf(char *fmt, ... ) {
+    if (DEBUG) {
+        cprintf(fmt);
+    }
+}
 
 struct {
     struct spinlock lock;
@@ -40,6 +48,7 @@ init_queue(struct proc_queue * list, struct proc * p) {
 
 void
 enqueue(struct proc_queue * q, struct proc * p) {
+    debugf("enqueue\n");
     if (q->empty) {
         // New element is the only element.
         init_queue(q, p);
@@ -70,6 +79,7 @@ remove_proc(struct proc * p) {
 
 struct proc *
 dequeue(struct proc_queue * q) {
+    debugf("dequeue\n");
     struct proc * p = q->head;
     remove_proc(p);
     if ((q->head == NULL) && (q->tail == NULL)) {
