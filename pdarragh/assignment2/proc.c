@@ -12,6 +12,7 @@
 struct {
     struct spinlock lock;
     struct proc proc[NPROC];
+    struct proc_queue ready;
 } ptable;
 
 static struct proc *initproc;
@@ -34,7 +35,7 @@ void
 init_queue(struct proc_queue * list, struct proc * p) {
     list->head = p;
     list->tail = p;
-    list->empty = 0;
+    list->empty = 1;
 }
 
 void
@@ -72,7 +73,7 @@ dequeue(struct proc_queue * q) {
     struct proc * p = q->head;
     remove_proc(p);
     if ((q->head == NULL) && (q->tail == NULL)) {
-        q->empty = 1;
+        q->empty = 0;
     }
     return p;
 }
@@ -137,6 +138,9 @@ allocproc(void) {
     char *sp;
 
     acquire(&ptable.lock);
+
+    // Initialize ready queue.
+    (&ptable.ready)->empty = 1;
 
     for (p = ptable.proc; p < &ptable.proc[NPROC]; p++)
         if (p->state == UNUSED)
@@ -208,6 +212,7 @@ userinit(void) {
     acquire(&ptable.lock);
 
     p->state = RUNNABLE;
+    enqueue(&ptable.ready, p);
 
     release(&ptable.lock);
 }
