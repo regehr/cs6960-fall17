@@ -277,6 +277,7 @@ fork(void) {
     acquire(&ptable.lock);
 
     np->state = RUNNABLE;
+    enqueue(&ptable.ready, np);
 
     release(&ptable.lock);
 
@@ -443,7 +444,9 @@ sched(void) {
 void
 yield(void) {
     acquire(&ptable.lock);  //DOC: yieldlock
-    myproc()->state = RUNNABLE;
+    struct proc * p = myproc();
+    p->state = RUNNABLE;
+    enqueue(&ptable.ready, p);
     sched();
     release(&ptable.lock);
 }
@@ -514,8 +517,10 @@ wakeup1(void *chan) {
     struct proc *p;
 
     for (p = ptable.proc; p < &ptable.proc[NPROC]; p++)
-        if (p->state == SLEEPING && p->chan == chan)
+        if (p->state == SLEEPING && p->chan == chan) {
             p->state = RUNNABLE;
+            enqueue(&ptable.ready, p);
+        }
 }
 
 // Wake up all processes sleeping on chan.
@@ -538,8 +543,10 @@ kill(int pid) {
         if (p->pid == pid) {
             p->killed = 1;
             // Wake process from sleep if necessary.
-            if (p->state == SLEEPING)
+            if (p->state == SLEEPING) {
                 p->state = RUNNABLE;
+                enqueue(&ptable.ready, p);
+            }
             release(&ptable.lock);
             return 0;
         }
