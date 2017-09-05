@@ -31,37 +31,22 @@ static void wakeup1(void *chan);
  */
 
 void
-init_list(struct proc_list * list, struct proc * p) {
+init_queue(struct proc_queue * list, struct proc * p) {
     list->head = p;
     list->tail = p;
     list->empty = 0;
 }
 
 void
-prepend_proc(struct proc_list * list, struct proc * p) {
-    if (list->empty) {
+enqueue(struct proc_queue * q, struct proc * p) {
+    if (q->empty) {
         // New element is the only element.
-        init_list(list, p);
+        init_queue(q, p);
     } else {
-        // New element should be added to the front.
-        struct proc * next = list->head;
-        next->prev = p;
-        p->next = next;
-        list->head = p;
-    }
-}
-
-void
-append_proc(struct proc_list * list, struct proc * p) {
-    if (list->empty) {
-        // New element is the only element.
-        init_list(list, p);
-    } else {
-        // New element should be added to the end.
-        struct proc * prev = list->tail;
-        prev->next = p;
-        p->prev = prev;
-        list->tail = p;
+        // New element added to the end of the queue.
+        p->prev = q->tail;
+        q->tail->next = p;
+        q->tail = p;
     }
 }
 
@@ -83,16 +68,12 @@ remove_proc(struct proc * p) {
 }
 
 struct proc *
-remove_head_proc(struct proc_list * list) {
-    struct proc * p = list->head;
+dequeue(struct proc_queue * q) {
+    struct proc * p = q->head;
     remove_proc(p);
-    return p;
-}
-
-struct proc *
-remove_tail_proc(struct proc_list * list) {
-    struct proc * p = list->tail;
-    remove_proc(p);
+    if ((q->head == NULL) && (q->tail == NULL)) {
+        q->empty = 1;
+    }
     return p;
 }
 

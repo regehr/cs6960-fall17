@@ -62,7 +62,7 @@ struct proc {
 //   expandable heap
 
 // Doubly-linked list for keeping track of processes
-struct proc_list {
+struct proc_queue {
     struct proc * head;             // First proc in the list
     struct proc * tail;             // Last proc in the list
     int empty;                      // Whether the list is empty (1 -> empty, 0 -> non-empty)
