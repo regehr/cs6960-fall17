@@ -18,7 +18,7 @@
 
 // Use xv6 memcpy for now
 void*
-memcpy(void *dst, const void *src, uint n);
+memcpy(void * restrict dst, const void * restrict src, uint n);
 
 struct pipe {
 
@@ -116,9 +116,12 @@ pipewrite(struct pipe *p, char *addr, int n)
 
 
     //----------------------------------------------------------
-    // parts of this idea borrowed from Pavol (same lab)
+    // simplest approach I could see for this, write in two chunks
+    // ... parts of this idea borrowed from Pavol (same lab)
     uint count = MIN(PIPESIZE - (p->nwrite - p->nread), (uint)(n - i));
-    uint end   = MIN(count, PIPESIZE - p->nwrite%PIPESIZE);
+    uint end   = MIN(count, PIPESIZE - ((p->nwrite) % PIPESIZE));
+
+    // write in two parts
     memcpy(&p->data[(p->nwrite) % PIPESIZE], &addr[i], end);
     memcpy(p->data, &addr[i + end], count - end);
 
@@ -152,10 +155,12 @@ piperead(struct pipe *p, char *addr, int n)
 //  }
 
   //----------------------------------------------------------
-  // parts of this idea borrowed from Pavol (same lab)
-  //  ... simplest appraoch
+  // simplest approach I could see for this, read in two chunks
+  // ... parts of this idea borrowed from Pavol (same lab)
   uint count = MIN(p->nwrite - p->nread, (uint)n);
-  uint end   = MIN(count, PIPESIZE - (p->nread % PIPESIZE));
+  uint end   = MIN(count, PIPESIZE - ((p->nread) % PIPESIZE));
+
+  // read in two parts
   memcpy(addr, &p->data[(p->nread) % PIPESIZE], end);
   memcpy(&addr[end], p->data, count - end);
 
