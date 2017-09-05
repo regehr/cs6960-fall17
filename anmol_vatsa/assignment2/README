@@ -1,0 +1,15 @@
+Assignment 2
+==============================
+Hack proc.c to add a ready queue.
+
+The Ready Queue is implemented as a FIFO structure. Enqueue is done on TAIL end and Dequeue is done on HEAD end.
+In "struct ptable", ready_head and ready_tail point to the HEAD and TAIL of the ready queue respectively.
+
+Each "proc" structure contains a pointer "next_ready" that specified the next RUNNABLE process in the Ready Queue.
+"next_ready" is only valid when the proc it is being called on is itself a RUNNABLE process i.e. itself in the Ready Queue.
+                    ________________________________________________
+ptable.ready_tail-> |null<-next_ready| <-next_ready | <-next_ready | <- ptable.ready_head
+		    |________________|______________|______________|
+		                  ready_queue
+				  
+The scheduler dequeues a RUNNABLE process in constant time and dispatches it.
