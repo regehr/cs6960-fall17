@@ -7,17 +7,24 @@
 #include "proc.h"
 #include "spinlock.h"
 
+#define NULL 0
+
+/* Queue Implementation Invariants:
+ *
+ * Head always points to the least recent node or to Last
+ *
+ * Last always points to the most recent node or to Head
+ *
+ * Head will point to Last and Last will Point to Head if and only if the
+ * queue is empty
+ */
+
 struct {
   struct spinlock lock;
   struct proc proc[NPROC];
-<<<<<<< HEAD
-  struct proc *readyfront;
-  struct proc *readytail;
-=======
-  struct proc* wait_queue[NPROC];
-  int front;
-  int rear;
->>>>>>> 50a203b90987f0233b0a381a7ff062f62ea52ef9
+
+  struct proc* head;
+  struct proc* last;
 } ptable;
 
 static struct proc *initproc;
@@ -28,16 +35,45 @@ extern void trapret(void);
 
 static void wakeup1(void *chan);
 
+static inline int empty() {
+    return ptable.head == (struct proc*) &ptable.last;
+}
+
+static void enqueue(struct proc *p) {
+    ptable.last->next = p;
+    ptable.last = p;
+    p->next = (struct proc*) &ptable.last;
+
+    p->state = RUNNABLE;
+};
+
+static struct proc* dequeue() {
+    /* The next part would still work if this guard was removed,
+     * but semantics of the function would change where you would have to
+     * consider the address of ptable.head as empty. An early guard also
+     * avoids redundant pointer-shuffling */
+    if (empty()) return NULL;
+
+    struct proc* p = ptable.head;
+    ptable.head = p->next;
+
+    /* We have to check if we need to clean up our Last pointer. */
+    if (empty()) ptable.last = (struct proc*) &ptable.head;
+
+    return p;
+}
+
 void
 pinit(void)
 {
   initlock(&ptable.lock, "ptable");
-<<<<<<< HEAD
-  ptable.readyfront = ptable.readytail = 0;
-=======
-  ptable.front = 0;
-  ptable.rear = 0;
->>>>>>> 50a203b90987f0233b0a381a7ff062f62ea52ef9
+
+  /* Use some cleverness to automatically cover an edge case.
+   * I placed the 'next' pointer in the front of the proc struct so the head
+   * and tail pointers can masquerade as actual proc structs. This allows
+   * special pointer checking to only have to exist in the dequeue. */
+  ptable.last = (struct proc*) &ptable.head;
+  ptable.head = (struct proc*) &ptable.last;
 }
 
 // Must be called with interrupts disabled
@@ -46,20 +82,6 @@ cpuid() {
   return mycpu()-cpus;
 }
 
-<<<<<<< HEAD
-void
-make_runnable(struct proc* p) {
-  p->state = RUNNABLE;
-  p->readynext = 0;
-  if (ptable.readytail)
-	  ptable.readytail->readynext = p;
-  ptable.readytail = p;
-  if (!ptable.readyfront)
-	  ptable.readyfront = p;
-}
-
-=======
->>>>>>> 50a203b90987f0233b0a381a7ff062f62ea52ef9
 // Must be called with interrupts disabled to avoid the caller being rescheduled
 // between reading lapicid and running through the loop.
 struct cpu*
@@ -176,15 +198,8 @@ userinit(void)
   // because the assignment might not be atomic.
   acquire(&ptable.lock);
 
-<<<<<<< HEAD
-  make_runnable(p);
-  
-=======
-  p->state = RUNNABLE;
-  ptable.wait_queue[ptable.rear] = p;
-  ptable.rear = (ptable.rear + 1) % NPROC;
+  enqueue(p);
 
->>>>>>> 50a203b90987f0233b0a381a7ff062f62ea52ef9
   release(&ptable.lock);
 }
 
@@ -249,13 +264,7 @@ fork(void)
 
   acquire(&ptable.lock);
 
-<<<<<<< HEAD
-  make_runnable(np);
-=======
-  np->state = RUNNABLE;
-  ptable.wait_queue[ptable.rear] = np;
-  ptable.rear = (ptable.rear + 1) % NPROC;
->>>>>>> 50a203b90987f0233b0a381a7ff062f62ea52ef9
+  enqueue(np);
 
   release(&ptable.lock);
 
@@ -370,39 +379,26 @@ scheduler(void)
   for(;;){
     // Enable interrupts on this processor.
     sti();
+
     // Loop over process table looking for process to run.
     acquire(&ptable.lock);
-<<<<<<< HEAD
- 
-    p = ptable.readyfront;
-	if (p) {
-      ptable.readyfront = ptable.readyfront->readynext;
-	  if (!ptable.readyfront) ptable.readytail = 0;
-
-	  // Switch to chosen process.  It is the process's job
-=======
-  
-    while (ptable.front != ptable.rear) {
-      p = ptable.wait_queue[ptable.front];
-      ptable.front = (ptable.front + 1) % NPROC;
-
+    while ((p = dequeue())) {
       // Switch to chosen process.  It is the process's job
->>>>>>> 50a203b90987f0233b0a381a7ff062f62ea52ef9
       // to release ptable.lock and then reacquire it
       // before jumping back to us.
       c->proc = p;
       switchuvm(p);
       p->state = RUNNING;
-  
+
       swtch(&(c->scheduler), p->context);
       switchkvm();
-  
+
       // Process is done running for now.
       // It should have changed its p->state before coming back.
       c->proc = 0;
     }
-
     release(&ptable.lock);
+
   }
 }
 
@@ -437,13 +433,7 @@ void
 yield(void)
 {
   acquire(&ptable.lock);  //DOC: yieldlock
-<<<<<<< HEAD
-  make_runnable(myproc());
-=======
-  myproc()->state = RUNNABLE;
-  ptable.wait_queue[ptable.rear] = myproc();
-  ptable.rear = (ptable.rear + 1) % NPROC;
->>>>>>> 50a203b90987f0233b0a381a7ff062f62ea52ef9
+  enqueue(myproc());
   sched();
   release(&ptable.lock);
 }
@@ -517,16 +507,9 @@ wakeup1(void *chan)
   struct proc *p;
 
   for(p = ptable.proc; p < &ptable.proc[NPROC]; p++)
-<<<<<<< HEAD
-    if(p->state == SLEEPING && p->chan == chan)
-		make_runnable(p);
-=======
     if(p->state == SLEEPING && p->chan == chan) {
-      p->state = RUNNABLE;
-      ptable.wait_queue[ptable.rear] = p;
-      ptable.rear = (ptable.rear + 1) % NPROC;
+        enqueue(p);
     }
->>>>>>> 50a203b90987f0233b0a381a7ff062f62ea52ef9
 }
 
 // Wake up all processes sleeping on chan.
@@ -551,16 +534,8 @@ kill(int pid)
     if(p->pid == pid){
       p->killed = 1;
       // Wake process from sleep if necessary.
-<<<<<<< HEAD
       if(p->state == SLEEPING)
-		make_runnable(p);
-=======
-      if(p->state == SLEEPING) {
-        p->state = RUNNABLE;
-        ptable.wait_queue[ptable.rear] = p;
-        ptable.rear = (ptable.rear + 1) % NPROC;
-      }
->>>>>>> 50a203b90987f0233b0a381a7ff062f62ea52ef9
+          enqueue(p);
       release(&ptable.lock);
       return 0;
     }

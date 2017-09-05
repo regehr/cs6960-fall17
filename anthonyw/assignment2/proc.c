@@ -10,14 +10,8 @@
 struct {
   struct spinlock lock;
   struct proc proc[NPROC];
-<<<<<<< HEAD
-  struct proc *readyfront;
-  struct proc *readytail;
-=======
-  struct proc* wait_queue[NPROC];
-  int front;
-  int rear;
->>>>>>> 50a203b90987f0233b0a381a7ff062f62ea52ef9
+  struct proc *rq_head;
+  struct proc *rq_tail;
 } ptable;
 
 static struct proc *initproc;
@@ -28,16 +22,15 @@ extern void trapret(void);
 
 static void wakeup1(void *chan);
 
+//Ready queue functions
+static void mkready(struct proc *p);
+static void ready_queue_insert(struct proc *p);
+static struct proc * ready_queue_remove();
+
 void
 pinit(void)
 {
   initlock(&ptable.lock, "ptable");
-<<<<<<< HEAD
-  ptable.readyfront = ptable.readytail = 0;
-=======
-  ptable.front = 0;
-  ptable.rear = 0;
->>>>>>> 50a203b90987f0233b0a381a7ff062f62ea52ef9
 }
 
 // Must be called with interrupts disabled
@@ -46,20 +39,6 @@ cpuid() {
   return mycpu()-cpus;
 }
 
-<<<<<<< HEAD
-void
-make_runnable(struct proc* p) {
-  p->state = RUNNABLE;
-  p->readynext = 0;
-  if (ptable.readytail)
-	  ptable.readytail->readynext = p;
-  ptable.readytail = p;
-  if (!ptable.readyfront)
-	  ptable.readyfront = p;
-}
-
-=======
->>>>>>> 50a203b90987f0233b0a381a7ff062f62ea52ef9
 // Must be called with interrupts disabled to avoid the caller being rescheduled
 // between reading lapicid and running through the loop.
 struct cpu*
@@ -116,6 +95,9 @@ allocproc(void)
 found:
   p->state = EMBRYO;
   p->pid = nextpid++;
+  // Initialize ready queue links
+  p->prev = (struct proc *)0;
+  p->next = (struct proc *)0;
 
   release(&ptable.lock);
 
@@ -176,15 +158,8 @@ userinit(void)
   // because the assignment might not be atomic.
   acquire(&ptable.lock);
 
-<<<<<<< HEAD
-  make_runnable(p);
-  
-=======
-  p->state = RUNNABLE;
-  ptable.wait_queue[ptable.rear] = p;
-  ptable.rear = (ptable.rear + 1) % NPROC;
+  mkready(p);
 
->>>>>>> 50a203b90987f0233b0a381a7ff062f62ea52ef9
   release(&ptable.lock);
 }
 
@@ -249,13 +224,7 @@ fork(void)
 
   acquire(&ptable.lock);
 
-<<<<<<< HEAD
-  make_runnable(np);
-=======
-  np->state = RUNNABLE;
-  ptable.wait_queue[ptable.rear] = np;
-  ptable.rear = (ptable.rear + 1) % NPROC;
->>>>>>> 50a203b90987f0233b0a381a7ff062f62ea52ef9
+  mkready(np);
 
   release(&ptable.lock);
 
@@ -370,39 +339,45 @@ scheduler(void)
   for(;;){
     // Enable interrupts on this processor.
     sti();
+
     // Loop over process table looking for process to run.
     acquire(&ptable.lock);
-<<<<<<< HEAD
- 
-    p = ptable.readyfront;
-	if (p) {
-      ptable.readyfront = ptable.readyfront->readynext;
-	  if (!ptable.readyfront) ptable.readytail = 0;
+    p = ready_queue_remove();
+    if(p){
+      //cprintf("Scheduling process %p\n", p);
+      c->proc = p;
+      switchuvm(p);
+      p->state = RUNNING;
 
-	  // Switch to chosen process.  It is the process's job
-=======
-  
-    while (ptable.front != ptable.rear) {
-      p = ptable.wait_queue[ptable.front];
-      ptable.front = (ptable.front + 1) % NPROC;
+      swtch(&(c->scheduler), p->context);
+      switchkvm();
+
+      // Process is done running for now.
+      // It should have changed its p->state before coming back.
+      c->proc = 0;
+    }
+    /*
+    for(p = ptable.proc; p < &ptable.proc[NPROC]; p++){
+      if(p->state != RUNNABLE)
+        continue;
 
       // Switch to chosen process.  It is the process's job
->>>>>>> 50a203b90987f0233b0a381a7ff062f62ea52ef9
       // to release ptable.lock and then reacquire it
       // before jumping back to us.
       c->proc = p;
       switchuvm(p);
       p->state = RUNNING;
-  
+
       swtch(&(c->scheduler), p->context);
       switchkvm();
-  
+
       // Process is done running for now.
       // It should have changed its p->state before coming back.
       c->proc = 0;
     }
-
+    */
     release(&ptable.lock);
+
   }
 }
 
@@ -437,13 +412,7 @@ void
 yield(void)
 {
   acquire(&ptable.lock);  //DOC: yieldlock
-<<<<<<< HEAD
-  make_runnable(myproc());
-=======
-  myproc()->state = RUNNABLE;
-  ptable.wait_queue[ptable.rear] = myproc();
-  ptable.rear = (ptable.rear + 1) % NPROC;
->>>>>>> 50a203b90987f0233b0a381a7ff062f62ea52ef9
+  mkready(myproc());
   sched();
   release(&ptable.lock);
 }
@@ -517,16 +486,8 @@ wakeup1(void *chan)
   struct proc *p;
 
   for(p = ptable.proc; p < &ptable.proc[NPROC]; p++)
-<<<<<<< HEAD
     if(p->state == SLEEPING && p->chan == chan)
-		make_runnable(p);
-=======
-    if(p->state == SLEEPING && p->chan == chan) {
-      p->state = RUNNABLE;
-      ptable.wait_queue[ptable.rear] = p;
-      ptable.rear = (ptable.rear + 1) % NPROC;
-    }
->>>>>>> 50a203b90987f0233b0a381a7ff062f62ea52ef9
+      mkready(p);
 }
 
 // Wake up all processes sleeping on chan.
@@ -551,16 +512,8 @@ kill(int pid)
     if(p->pid == pid){
       p->killed = 1;
       // Wake process from sleep if necessary.
-<<<<<<< HEAD
       if(p->state == SLEEPING)
-		make_runnable(p);
-=======
-      if(p->state == SLEEPING) {
-        p->state = RUNNABLE;
-        ptable.wait_queue[ptable.rear] = p;
-        ptable.rear = (ptable.rear + 1) % NPROC;
-      }
->>>>>>> 50a203b90987f0233b0a381a7ff062f62ea52ef9
+        mkready(p);
       release(&ptable.lock);
       return 0;
     }
@@ -604,4 +557,54 @@ procdump(void)
     }
     cprintf("\n");
   }
+}
+
+// Make a process runnable.
+static void 
+mkready(struct proc *p)
+{
+  // This will eventually mean being added to a run queue, but for now we just
+  // set its state to RUNNABLE
+  p->state = RUNNABLE;
+  ready_queue_insert(p);
+
+}
+
+static void ready_queue_insert(struct proc *p)
+{
+  //cprintf("inserting %p into ready queue\n", p);
+  if(!p)
+    return;
+  if(ptable.rq_head){
+    ptable.rq_head->prev = p;
+    p->next = ptable.rq_head;
+  }
+  ptable.rq_head = p;
+  p->prev = 0;
+
+  if(ptable.rq_tail == 0){
+    ptable.rq_tail = p;
+  }
+
+  return;
+}
+
+static struct proc * ready_queue_remove()
+{
+  struct proc *res;
+
+  if(ptable.rq_tail == 0){
+    return 0;
+  }
+  res = ptable.rq_tail;
+  ptable.rq_tail = ptable.rq_tail->prev;
+  if(ptable.rq_head == res){
+    ptable.rq_head = 0;
+  }
+  if(ptable.rq_tail){
+    ptable.rq_tail->next = 0;
+  }
+
+  //cprintf("returning %p from ready_queue_remove\n", res);
+  return res;
 }

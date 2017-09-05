@@ -10,14 +10,8 @@
 struct {
   struct spinlock lock;
   struct proc proc[NPROC];
-<<<<<<< HEAD
-  struct proc *readyfront;
-  struct proc *readytail;
-=======
-  struct proc* wait_queue[NPROC];
-  int front;
-  int rear;
->>>>>>> 50a203b90987f0233b0a381a7ff062f62ea52ef9
+  struct proc * first_ready;
+  struct proc * last_ready;
 } ptable;
 
 static struct proc *initproc;
@@ -32,12 +26,59 @@ void
 pinit(void)
 {
   initlock(&ptable.lock, "ptable");
-<<<<<<< HEAD
-  ptable.readyfront = ptable.readytail = 0;
-=======
-  ptable.front = 0;
-  ptable.rear = 0;
->>>>>>> 50a203b90987f0233b0a381a7ff062f62ea52ef9
+  
+  ptable.first_ready = 0;
+  ptable.last_ready = 0;
+}
+
+void 
+make_proc_ready_nolock(struct proc * proc) {
+  proc->state = RUNNABLE;
+
+  proc->next_ready = ptable.first_ready;
+
+  if (ptable.first_ready != 0) {
+    ptable.first_ready->prev_ready = proc;
+  }
+
+  if (ptable.last_ready == 0) {
+    ptable.last_ready = proc;
+  }
+
+  ptable.first_ready = proc;
+}
+
+void
+make_proc_ready(struct proc * proc) {
+  acquire(&ptable.lock);
+
+  make_proc_ready_nolock(proc);
+  
+  release(&ptable.lock);
+}
+
+struct proc *
+get_ready_proc(void) {
+  // If the list is empty, return NULL.
+  if (ptable.last_ready == 0) {
+    return 0;
+  }     
+
+  struct proc * return_proc = ptable.last_ready;
+  struct proc * prev_proc = return_proc->prev_ready;
+
+  ptable.last_ready = prev_proc;
+
+  // If there is no previous proc, this proc was the first one.
+  if (prev_proc == 0) {
+    ptable.first_ready = 0;
+  } else {
+    prev_proc->next_ready = 0;
+  }
+
+  return_proc->prev_ready = 0;
+
+  return return_proc;
 }
 
 // Must be called with interrupts disabled
@@ -46,22 +87,8 @@ cpuid() {
   return mycpu()-cpus;
 }
 
-<<<<<<< HEAD
-void
-make_runnable(struct proc* p) {
-  p->state = RUNNABLE;
-  p->readynext = 0;
-  if (ptable.readytail)
-	  ptable.readytail->readynext = p;
-  ptable.readytail = p;
-  if (!ptable.readyfront)
-	  ptable.readyfront = p;
-}
-
-=======
->>>>>>> 50a203b90987f0233b0a381a7ff062f62ea52ef9
-// Must be called with interrupts disabled to avoid the caller being rescheduled
-// between reading lapicid and running through the loop.
+// Must be called with interrupts disabled to avoid the caller being
+// rescheduled between reading lapicid and running through the loop.
 struct cpu*
 mycpu(void)
 {
@@ -140,6 +167,10 @@ found:
   memset(p->context, 0, sizeof *p->context);
   p->context->eip = (uint)forkret;
 
+  // Initialize ready queue pointers.
+  p->next_ready = 0;
+  p->prev_ready = 0;
+
   return p;
 }
 
@@ -174,18 +205,7 @@ userinit(void)
   // run this process. the acquire forces the above
   // writes to be visible, and the lock is also needed
   // because the assignment might not be atomic.
-  acquire(&ptable.lock);
-
-<<<<<<< HEAD
-  make_runnable(p);
-  
-=======
-  p->state = RUNNABLE;
-  ptable.wait_queue[ptable.rear] = p;
-  ptable.rear = (ptable.rear + 1) % NPROC;
-
->>>>>>> 50a203b90987f0233b0a381a7ff062f62ea52ef9
-  release(&ptable.lock);
+  make_proc_ready(p);
 }
 
 // Grow current process's memory by n bytes.
@@ -247,17 +267,7 @@ fork(void)
 
   pid = np->pid;
 
-  acquire(&ptable.lock);
-
-<<<<<<< HEAD
-  make_runnable(np);
-=======
-  np->state = RUNNABLE;
-  ptable.wait_queue[ptable.rear] = np;
-  ptable.rear = (ptable.rear + 1) % NPROC;
->>>>>>> 50a203b90987f0233b0a381a7ff062f62ea52ef9
-
-  release(&ptable.lock);
+  make_proc_ready(np);
 
   return pid;
 }
@@ -370,39 +380,54 @@ scheduler(void)
   for(;;){
     // Enable interrupts on this processor.
     sti();
-    // Loop over process table looking for process to run.
+
     acquire(&ptable.lock);
-<<<<<<< HEAD
- 
-    p = ptable.readyfront;
-	if (p) {
-      ptable.readyfront = ptable.readyfront->readynext;
-	  if (!ptable.readyfront) ptable.readytail = 0;
 
-	  // Switch to chosen process.  It is the process's job
-=======
-  
-    while (ptable.front != ptable.rear) {
-      p = ptable.wait_queue[ptable.front];
-      ptable.front = (ptable.front + 1) % NPROC;
-
-      // Switch to chosen process.  It is the process's job
->>>>>>> 50a203b90987f0233b0a381a7ff062f62ea52ef9
-      // to release ptable.lock and then reacquire it
-      // before jumping back to us.
-      c->proc = p;
-      switchuvm(p);
-      p->state = RUNNING;
-  
-      swtch(&(c->scheduler), p->context);
-      switchkvm();
-  
-      // Process is done running for now.
-      // It should have changed its p->state before coming back.
-      c->proc = 0;
+    // Attempt to retrieve a process.
+    p = get_ready_proc();
+    if (p == 0) {
+      release(&ptable.lock);
+      continue;
     }
+    
+    // Switch to chosen process.  It is the process's job
+    // to release ptable.lock and then reacquire it
+    // before jumping back to us.
+    c->proc = p;
+    switchuvm(p);
+    p->state = RUNNING;
+
+    swtch(&(c->scheduler), p->context);
+    switchkvm();
+
+    // Process is done running for now.
+    // It should have changed its p->state before coming back.
+    c->proc = 0;
 
     release(&ptable.lock);
+
+    // Loop over process table looking for process to run.
+    // acquire(&ptable.lock);
+    // for(p = ptable.proc; p < &ptable.proc[NPROC]; p++){
+      // if(p->state != RUNNABLE)
+        // continue;
+
+      // Switch to chosen process.  It is the process's job
+      // to release ptable.lock and then reacquire it
+      // before jumping back to us.
+      // c->proc = p;
+      // switchuvm(p);
+      // p->state = RUNNING;
+
+      // swtch(&(c->scheduler), p->context);
+      // switchkvm();
+
+      // Process is done running for now.
+      // It should have changed its p->state before coming back.
+      // c->proc = 0;
+    // }
+    // release(&ptable.lock);
+
   }
 }
 
@@ -437,13 +462,8 @@ void
 yield(void)
 {
   acquire(&ptable.lock);  //DOC: yieldlock
-<<<<<<< HEAD
-  make_runnable(myproc());
-=======
-  myproc()->state = RUNNABLE;
-  ptable.wait_queue[ptable.rear] = myproc();
-  ptable.rear = (ptable.rear + 1) % NPROC;
->>>>>>> 50a203b90987f0233b0a381a7ff062f62ea52ef9
+  make_proc_ready_nolock(myproc());
+  //myproc()->state = RUNNABLE;
   sched();
   release(&ptable.lock);
 }
@@ -517,16 +537,9 @@ wakeup1(void *chan)
   struct proc *p;
 
   for(p = ptable.proc; p < &ptable.proc[NPROC]; p++)
-<<<<<<< HEAD
     if(p->state == SLEEPING && p->chan == chan)
-		make_runnable(p);
-=======
-    if(p->state == SLEEPING && p->chan == chan) {
-      p->state = RUNNABLE;
-      ptable.wait_queue[ptable.rear] = p;
-      ptable.rear = (ptable.rear + 1) % NPROC;
-    }
->>>>>>> 50a203b90987f0233b0a381a7ff062f62ea52ef9
+      make_proc_ready_nolock(p);
+      //p->state = RUNNABLE;
 }
 
 // Wake up all processes sleeping on chan.
@@ -551,16 +564,9 @@ kill(int pid)
     if(p->pid == pid){
       p->killed = 1;
       // Wake process from sleep if necessary.
-<<<<<<< HEAD
       if(p->state == SLEEPING)
-		make_runnable(p);
-=======
-      if(p->state == SLEEPING) {
-        p->state = RUNNABLE;
-        ptable.wait_queue[ptable.rear] = p;
-        ptable.rear = (ptable.rear + 1) % NPROC;
-      }
->>>>>>> 50a203b90987f0233b0a381a7ff062f62ea52ef9
+        make_proc_ready_nolock(p);
+        //p->state = RUNNABLE;
       release(&ptable.lock);
       return 0;
     }
