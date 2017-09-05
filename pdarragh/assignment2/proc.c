@@ -43,7 +43,7 @@ void
 init_queue(struct proc_queue * list, struct proc * p) {
     list->head = p;
     list->tail = p;
-    list->empty = 1;
+    list->empty = 0;
 }
 
 void
@@ -83,7 +83,7 @@ dequeue(struct proc_queue * q) {
     struct proc * p = q->head;
     remove_proc(p);
     if ((q->head == NULL) && (q->tail == NULL)) {
-        q->empty = 0;
+        q->empty = 1;
     }
     return p;
 }
