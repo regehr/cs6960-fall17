@@ -9,10 +9,11 @@
 #include "file.h"
 
 #define PIPESIZE 512
+#define MIN(x, y) (((x) < (y)) ? (x) : (y))
 
 struct pipe {
+  char data[PIPESIZE];	//For alignment
   struct spinlock lock;
-  char data[PIPESIZE];
   uint nread;     // number of bytes read
   uint nwrite;    // number of bytes written
   int readopen;   // read fd is still open
@@ -74,8 +75,19 @@ pipeclose(struct pipe *p, int writable)
     release(&p->lock);
 }
 
-int min(int a, int b){
-  return a < b ? a : b;
+void*
+my_memcpy(void *dst, const void *src, uint n)
+{
+  	const char *s;
+  	char *d;
+
+  	s = src;
+  	d = dst;
+
+	for (int i = 0; i < n; ++i){
+    	d[i] = s[i];
+	}
+	return d;
 }
 
 //PAGEBREAK: 40
@@ -85,7 +97,7 @@ pipewrite(struct pipe *p, char *addr, int n)
   int i;
 
   acquire(&p->lock);
-  for(i = 0; i < n;){
+  for(i = 0; i < n; ){
     while(p->nwrite == p->nread + PIPESIZE){  //DOC: pipewrite-full
       if(p->readopen == 0 || myproc()->killed){
         release(&p->lock);
@@ -94,12 +106,20 @@ pipewrite(struct pipe *p, char *addr, int n)
       wakeup(&p->nread);
       sleep(&p->nwrite, &p->lock);  //DOC: pipewrite-sleep
     }
-    int pipeavail = PIPESIZE - (p->nwrite - p->nread);
-    int pipe_avail_til_wrap = PIPESIZE - (p->nwrite % PIPESIZE);
-    int pipe_n_now = min(min(pipeavail, pipe_avail_til_wrap), n-i);
-    memmove(&(p->data[p->nwrite % PIPESIZE]), &addr[i], pipe_n_now);
-    p->nwrite += pipe_n_now;
-    i += pipe_n_now;
+
+
+	//Simplest idea explained in class
+
+	//How much be written in current state
+	uint size = MIN(PIPESIZE - (p->nwrite - p->nread), (uint)(n - i));
+    //Determine if we need a split
+	uint actSize = MIN(size, PIPESIZE - p->nwrite%PIPESIZE);
+	
+    my_memcpy(&p->data[p->nwrite%PIPESIZE], &addr[i], actSize);
+    if(actSize!=size)my_memcpy(p->data, &addr[i + actSize], size - actSize);
+
+    p->nwrite += size;
+    i += size;
   }
   wakeup(&p->nread);  //DOC: pipewrite-wakeup1
   release(&p->lock);
@@ -109,6 +129,7 @@ pipewrite(struct pipe *p, char *addr, int n)
 int
 piperead(struct pipe *p, char *addr, int n)
 {
+
   acquire(&p->lock);
   while(p->nread == p->nwrite && p->writeopen){  //DOC: pipe-empty
     if(myproc()->killed){
@@ -117,12 +138,17 @@ piperead(struct pipe *p, char *addr, int n)
     }
     sleep(&p->nread, &p->lock); //DOC: piperead-sleep
   }
-  int pipeavail = p->nwrite - p->nread;
-  int pipe_avail_til_wrap = PIPESIZE - (p->nread % PIPESIZE);
-  int pipe_n_now = min(min(pipeavail, pipe_avail_til_wrap), n);
-  memmove(addr, &(p->data[p->nread % PIPESIZE]), pipe_n_now);
-  p->nread += pipe_n_now;
+ 
+	//Since short reads are present, we don't need to have a for loop at all and can perform all at once
+	uint size = MIN(p->nwrite - p->nread, (uint)n);
+  	uint actSize = MIN(size, PIPESIZE - p->nread%PIPESIZE);
+
+  	my_memcpy(addr, &p->data[p->nread%PIPESIZE], actSize);
+  	if(actSize!=size)my_memcpy(&addr[actSize], p->data, size - actSize);
+
+  	p->nread += size;
+ 
   wakeup(&p->nwrite);  //DOC: piperead-wakeup
   release(&p->lock);
-  return pipe_n_now;
+  return size;
 }

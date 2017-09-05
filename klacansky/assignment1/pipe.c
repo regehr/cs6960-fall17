@@ -8,11 +8,11 @@
 #include "sleeplock.h"
 #include "file.h"
 
-#define PIPESIZE 512
+#define PIPESIZE PGSIZE // what kalloc gives us
 
 struct pipe {
   struct spinlock lock;
-  char data[PIPESIZE];
+  char *data;
   uint nread;     // number of bytes read
   uint nwrite;    // number of bytes written
   int readopen;   // read fd is still open
@@ -25,11 +25,15 @@ pipealloc(struct file **f0, struct file **f1)
   struct pipe *p;
 
   p = 0;
+  char *buffer = 0;
   *f0 = *f1 = 0;
   if((*f0 = filealloc()) == 0 || (*f1 = filealloc()) == 0)
     goto bad;
   if((p = (struct pipe*)kalloc()) == 0)
     goto bad;
+  if ((buffer = kalloc()) == 0)
+    goto bad;
+  p->data = buffer;
   p->readopen = 1;
   p->writeopen = 1;
   p->nwrite = 0;
@@ -49,6 +53,8 @@ pipealloc(struct file **f0, struct file **f1)
  bad:
   if(p)
     kfree((char*)p);
+  if(buffer)
+    kfree(buffer);
   if(*f0)
     fileclose(*f0);
   if(*f1)
@@ -69,16 +75,24 @@ pipeclose(struct pipe *p, int writable)
   }
   if(p->readopen == 0 && p->writeopen == 0){
     release(&p->lock);
+    kfree(p->data);
     kfree((char*)p);
   } else
     release(&p->lock);
 }
 
-int min(int a, int b){
-  return a < b ? a : b;
+char *
+s_memcpy(char *const restrict dst, char const *const restrict src, int const count)
+{
+        for (int i = 0; i < count; ++i)
+                dst[i] = src[i];
+        return dst;
 }
 
+#define MIN(a, b) (((a) < (b)) ? (a) : (b))
+
 //PAGEBREAK: 40
+/* no short writes */
 int
 pipewrite(struct pipe *p, char *addr, int n)
 {
@@ -94,12 +108,15 @@ pipewrite(struct pipe *p, char *addr, int n)
       wakeup(&p->nread);
       sleep(&p->nwrite, &p->lock);  //DOC: pipewrite-sleep
     }
-    int pipeavail = PIPESIZE - (p->nwrite - p->nread);
-    int pipe_avail_til_wrap = PIPESIZE - (p->nwrite % PIPESIZE);
-    int pipe_n_now = min(min(pipeavail, pipe_avail_til_wrap), n-i);
-    memmove(&(p->data[p->nwrite % PIPESIZE]), &addr[i], pipe_n_now);
-    p->nwrite += pipe_n_now;
-    i += pipe_n_now;
+    /* copy as much as we can; same-ish as in piperead */
+    uint const count = MIN(PIPESIZE - (p->nwrite - p->nread), (uint)(n - i));
+    uint const end_count = MIN(count, PIPESIZE - p->nwrite%PIPESIZE);
+
+    s_memcpy(&p->data[p->nwrite%PIPESIZE], &addr[i], end_count);
+    s_memcpy(p->data, &addr[i + end_count], count - end_count);
+
+    p->nwrite += count;
+    i += count;
   }
   wakeup(&p->nread);  //DOC: pipewrite-wakeup1
   release(&p->lock);
@@ -110,19 +127,23 @@ int
 piperead(struct pipe *p, char *addr, int n)
 {
   acquire(&p->lock);
-  while(p->nread == p->nwrite && p->writeopen){  //DOC: pipe-empty
+  while(p->nread == p->nwrite && p->writeopen){  //DOC: pipe-empty; thanks TAJO
     if(myproc()->killed){
       release(&p->lock);
       return -1;
     }
     sleep(&p->nread, &p->lock); //DOC: piperead-sleep
   }
-  int pipeavail = p->nwrite - p->nread;
-  int pipe_avail_til_wrap = PIPESIZE - (p->nread % PIPESIZE);
-  int pipe_n_now = min(min(pipeavail, pipe_avail_til_wrap), n);
-  memmove(addr, &(p->data[p->nread % PIPESIZE]), pipe_n_now);
-  p->nread += pipe_n_now;
+
+  uint const count = MIN(p->nwrite - p->nread, (uint)n);
+  uint const end_count = MIN(count, PIPESIZE - p->nread%PIPESIZE);
+
+  s_memcpy(addr, &p->data[p->nread%PIPESIZE], end_count);
+  s_memcpy(&addr[end_count], p->data, count - end_count);
+
+  p->nread += count;
+
   wakeup(&p->nwrite);  //DOC: piperead-wakeup
   release(&p->lock);
-  return pipe_n_now;
+  return count;
 }
