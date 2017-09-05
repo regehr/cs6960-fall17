@@ -10,9 +10,8 @@
 struct {
   struct spinlock lock;
   struct proc proc[NPROC];
-  struct proc* wait_queue[NPROC];
-  int front;
-  int rear;
+  struct proc *readyfront;
+  struct proc *readytail;
 } ptable;
 
 static struct proc *initproc;
@@ -27,14 +26,24 @@ void
 pinit(void)
 {
   initlock(&ptable.lock, "ptable");
-  ptable.front = 0;
-  ptable.rear = 0;
+  ptable.readyfront = ptable.readytail = 0;
 }
 
 // Must be called with interrupts disabled
 int
 cpuid() {
   return mycpu()-cpus;
+}
+
+void
+make_runnable(struct proc* p) {
+  p->state = RUNNABLE;
+  p->readynext = 0;
+  if (ptable.readytail)
+	  ptable.readytail->readynext = p;
+  ptable.readytail = p;
+  if (!ptable.readyfront)
+	  ptable.readyfront = p;
 }
 
 // Must be called with interrupts disabled to avoid the caller being rescheduled
@@ -153,10 +162,8 @@ userinit(void)
   // because the assignment might not be atomic.
   acquire(&ptable.lock);
 
-  p->state = RUNNABLE;
-  ptable.wait_queue[ptable.rear] = p;
-  ptable.rear = (ptable.rear + 1) % NPROC;
-
+  make_runnable(p);
+  
   release(&ptable.lock);
 }
 
@@ -221,9 +228,7 @@ fork(void)
 
   acquire(&ptable.lock);
 
-  np->state = RUNNABLE;
-  ptable.wait_queue[ptable.rear] = np;
-  ptable.rear = (ptable.rear + 1) % NPROC;
+  make_runnable(np);
 
   release(&ptable.lock);
 
@@ -340,12 +345,13 @@ scheduler(void)
     sti();
     // Loop over process table looking for process to run.
     acquire(&ptable.lock);
-  
-    while (ptable.front != ptable.rear) {
-      p = ptable.wait_queue[ptable.front];
-      ptable.front = (ptable.front + 1) % NPROC;
+ 
+    p = ptable.readyfront;
+	if (p) {
+      ptable.readyfront = ptable.readyfront->readynext;
+	  if (!ptable.readyfront) ptable.readytail = 0;
 
-      // Switch to chosen process.  It is the process's job
+	  // Switch to chosen process.  It is the process's job
       // to release ptable.lock and then reacquire it
       // before jumping back to us.
       c->proc = p;
@@ -395,9 +401,7 @@ void
 yield(void)
 {
   acquire(&ptable.lock);  //DOC: yieldlock
-  myproc()->state = RUNNABLE;
-  ptable.wait_queue[ptable.rear] = myproc();
-  ptable.rear = (ptable.rear + 1) % NPROC;
+  make_runnable(myproc());
   sched();
   release(&ptable.lock);
 }
@@ -471,11 +475,8 @@ wakeup1(void *chan)
   struct proc *p;
 
   for(p = ptable.proc; p < &ptable.proc[NPROC]; p++)
-    if(p->state == SLEEPING && p->chan == chan) {
-      p->state = RUNNABLE;
-      ptable.wait_queue[ptable.rear] = p;
-      ptable.rear = (ptable.rear + 1) % NPROC;
-    }
+    if(p->state == SLEEPING && p->chan == chan)
+		make_runnable(p);
 }
 
 // Wake up all processes sleeping on chan.
@@ -500,11 +501,8 @@ kill(int pid)
     if(p->pid == pid){
       p->killed = 1;
       // Wake process from sleep if necessary.
-      if(p->state == SLEEPING) {
-        p->state = RUNNABLE;
-        ptable.wait_queue[ptable.rear] = p;
-        ptable.rear = (ptable.rear + 1) % NPROC;
-      }
+      if(p->state == SLEEPING)
+		make_runnable(p);
       release(&ptable.lock);
       return 0;
     }
