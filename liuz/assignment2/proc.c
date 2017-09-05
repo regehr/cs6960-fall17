@@ -9,41 +9,27 @@
 
 #define NULL 0
 
-typedef struct pnode{
-  struct proc* node;
-  struct pnode* next;
-} pnode;
-
 struct {
   struct spinlock lock;
   struct proc proc[NPROC];
-  struct pnode* phead;
-  struct pnode* ptail;
+  struct proc* phead;
+  struct proc* ptail;
 } ptable;
 
 static void enq (struct proc *p) {
+  ptable.ptail->next = p;
+  ptable.ptail = p;
+  p->next = (struct proc*) &ptable.ptail;
   p->state = RUNNABLE;
-  struct pnode* node = (struct pnode *)kalloc();
-  node->next = NULL;
-  node->node = p;
-  if(ptable.phead == NULL && ptable.ptail == NULL){
-    ptable.phead = ptable.ptail = node;
-    return;
-  }
-  ptable.ptail->next = node;
-  ptable.ptail = node;
 };
 
 static struct proc* deq () {
-  struct proc* p = ptable.phead->node;
-  struct pnode* head = ptable.phead;
-  if (!ptable.phead) return NULL;
-  if (ptable.phead == ptable.ptail) {
-    ptable.phead = ptable.ptail = NULL;
-  } else {
-    ptable.phead = ptable.phead -> next;
-  }
-  kfree ((char*)head);
+  if (ptable.phead == (struct proc*) &ptable.ptail) return NULL;
+  struct proc* p = ptable.phead;
+  ptable.phead = p->next;
+  
+  if (ptable.phead == (struct proc*) &ptable.ptail)
+    ptable.ptail = (struct proc*) &ptable.phead;
   return p;
 };
 
@@ -59,7 +45,8 @@ void
 pinit(void)
 {
   initlock(&ptable.lock, "ptable");
-  ptable.phead = ptable.ptail = NULL;
+  ptable.ptail = (struct proc*) &ptable.phead;
+  ptable.phead = (struct proc*) &ptable.ptail;
 }
 
 // Must be called with interrupts disabled
