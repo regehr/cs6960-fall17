@@ -10,7 +10,7 @@
 #define NULL 0
 #define DEBUG 0
 
-void
+static inline void
 debugf(char *fmt, ... ) {
     if (DEBUG) {
         cprintf(fmt);
