@@ -39,17 +39,24 @@ static void wakeup1(void *chan);
  *
  */
 
+int
+is_empty(struct proc_queue * q) {
+    if ((q->head == NULL) ^ (q->tail == NULL)) {
+        panic("invalid queue state\n");
+    }
+    return ((q->head == NULL) && (q->tail == NULL));
+}
+
 void
 init_queue(struct proc_queue * q, struct proc * p) {
     q->head = p;
     q->tail = p;
-    q->empty = 0;
 }
 
 void
 enqueue(struct proc_queue * q, struct proc * p) {
     debugf("enqueue\n");
-    if (q->empty) {
+    if (is_empty(q)) {
         // New element is the only element.
         init_queue(q, p);
     } else {
@@ -82,9 +89,6 @@ dequeue(struct proc_queue * q) {
     debugf("dequeue\n");
     struct proc * p = q->head;
     remove_proc(p);
-    if ((q->head == NULL) && (q->tail == NULL)) {
-        q->empty = 1;
-    }
     return p;
 }
 
@@ -104,7 +108,6 @@ void
 pinit(void) {
     initlock(&ptable.lock, "ptable");
     // Initialize ready queue.
-    ptable.ready.empty = 1;
     ptable.ready.head = NULL;
     ptable.ready.tail = NULL;
 }
