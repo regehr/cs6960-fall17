@@ -40,10 +40,10 @@ static void wakeup1(void *chan);
  */
 
 void
-init_queue(struct proc_queue * list, struct proc * p) {
-    list->head = p;
-    list->tail = p;
-    list->empty = 0;
+init_queue(struct proc_queue * q, struct proc * p) {
+    q->head = p;
+    q->tail = p;
+    q->empty = 0;
 }
 
 void
@@ -408,6 +408,7 @@ scheduler(void) {
         p = dequeue(&ptable.ready);
         if (p == NULL) {
             // No RUNNABLE process exists.
+            debugf("no runnable process\n");
             release(&ptable.lock);
             continue;
         }
