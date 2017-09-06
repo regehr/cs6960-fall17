@@ -104,7 +104,9 @@ void
 pinit(void) {
     initlock(&ptable.lock, "ptable");
     // Initialize ready queue.
-    (&ptable.ready)->empty = 1;
+    ptable.ready.empty = 1;
+    ptable.ready.head = NULL;
+    ptable.ready.tail = NULL;
 }
 
 // Must be called with interrupts disabled
