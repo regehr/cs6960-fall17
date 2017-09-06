@@ -95,6 +95,12 @@ dequeue(struct proc_queue * q) {
  */
 
 void
+make_runnable(struct proc * p) {
+    p->state = RUNNABLE;
+    enqueue(&ptable.ready, p);
+}
+
+void
 pinit(void) {
     initlock(&ptable.lock, "ptable");
     // Initialize ready queue.
@@ -220,8 +226,7 @@ userinit(void) {
     // because the assignment might not be atomic.
     acquire(&ptable.lock);
 
-    p->state = RUNNABLE;
-    enqueue(&ptable.ready, p);
+    make_runnable(p);
 
     release(&ptable.lock);
 }
@@ -285,8 +290,7 @@ fork(void) {
 
     acquire(&ptable.lock);
 
-    np->state = RUNNABLE;
-    enqueue(&ptable.ready, np);
+    make_runnable(np);
 
     release(&ptable.lock);
 
@@ -454,8 +458,7 @@ void
 yield(void) {
     acquire(&ptable.lock);  //DOC: yieldlock
     struct proc * p = myproc();
-    p->state = RUNNABLE;
-    enqueue(&ptable.ready, p);
+    make_runnable(p);
     sched();
     release(&ptable.lock);
 }
@@ -527,8 +530,7 @@ wakeup1(void *chan) {
 
     for (p = ptable.proc; p < &ptable.proc[NPROC]; p++)
         if (p->state == SLEEPING && p->chan == chan) {
-            p->state = RUNNABLE;
-            enqueue(&ptable.ready, p);
+            make_runnable(p);
         }
 }
 
@@ -553,8 +555,7 @@ kill(int pid) {
             p->killed = 1;
             // Wake process from sleep if necessary.
             if (p->state == SLEEPING) {
-                p->state = RUNNABLE;
-                enqueue(&ptable.ready, p);
+                make_runnable(p);
             }
             release(&ptable.lock);
             return 0;
