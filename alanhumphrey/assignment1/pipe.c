@@ -62,7 +62,7 @@ pipealloc(struct file **f0, struct file **f1)
 
 //PAGEBREAK: 20
  bad:
- if(p->data)
+ if(p && p->data)
    kfree(p->data);
   if(p)
     kfree((char*)p);
