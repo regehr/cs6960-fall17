@@ -8,10 +8,10 @@
 #include "sleeplock.h"
 #include "file.h"
 
-#define PIPESIZE 2048
+#define PIPESIZE 4096
 
 struct pipe {
-  char data[PIPESIZE];
+  char *data; // Decided to switch this to be dynamically allocated after seeing it in class.
   struct spinlock lock;
   uint nread;     // number of bytes read
   uint nwrite;    // number of bytes written
@@ -34,6 +34,7 @@ pipealloc(struct file **f0, struct file **f1)
   p->writeopen = 1;
   p->nwrite = 0;
   p->nread = 0;
+  p->data = kalloc();
   initlock(&p->lock, "pipe");
   (*f0)->type = FD_PIPE;
   (*f0)->readable = 1;
@@ -69,6 +70,7 @@ pipeclose(struct pipe *p, int writable)
   }
   if(p->readopen == 0 && p->writeopen == 0){
     release(&p->lock);
+    kfree(p->data);
     kfree((char*)p);
   } else
     release(&p->lock);
