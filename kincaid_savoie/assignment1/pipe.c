@@ -10,6 +10,9 @@
 
 #define PIPESIZE 4096
 
+// Taken from: https://stackoverflow.com/questions/3437404/min-and-max-in-c
+#define MIN(a, b) (((a) < (b)) ? (a) : (b))
+
 struct pipe {
   char *data; // Decided to switch this to be dynamically allocated after seeing it in class.
   struct spinlock lock;
@@ -80,10 +83,10 @@ pipeclose(struct pipe *p, int writable)
 int
 pipewrite(struct pipe *p, char *addr, int n)
 {
-  int i;
-
   acquire(&p->lock);
-  for(i = 0; i < n; i++){
+
+  int i = 0;
+  while (i < n) {
     while(p->nwrite == p->nread + PIPESIZE){  //DOC: pipewrite-full
       if(p->readopen == 0 || myproc()->killed){
         release(&p->lock);
@@ -92,8 +95,31 @@ pipewrite(struct pipe *p, char *addr, int n)
       wakeup(&p->nread);
       sleep(&p->nwrite, &p->lock);  //DOC: pipewrite-sleep
     }
-    p->data[p->nwrite++ % PIPESIZE] = addr[i];
+
+    // Figure out how many bytes we'll write total.
+    int buf_space = PIPESIZE - (p->nwrite - p->nread);
+    int num_to_write = MIN(buf_space, n - i);
+
+    // Figure out the current position at which we'll start writing data.
+    int write_position = p->nwrite % PIPESIZE;
+
+    // Figure out how many bytes we should write before the buffer wraps.
+    int end_space = PIPESIZE - write_position;
+    int end_write_amount = MIN(num_to_write, end_space);
+
+    memmove(&p->data[write_position], &addr[i], end_write_amount);
+
+    // Figure out how many bytes we have left to write at the beginning.
+    int begin_amount = num_to_write - end_write_amount;
+
+    if (begin_amount) {
+      memmove(p->data, &addr[i + end_write_amount], begin_amount);
+    }
+
+    i += num_to_write;
+    p->nwrite += num_to_write;
   }
+
   wakeup(&p->nread);  //DOC: pipewrite-wakeup1
   release(&p->lock);
   return n;
@@ -102,8 +128,6 @@ pipewrite(struct pipe *p, char *addr, int n)
 int
 piperead(struct pipe *p, char *addr, int n)
 {
-  int i;
-
   acquire(&p->lock);
   while(p->nread == p->nwrite && p->writeopen){  //DOC: pipe-empty
     if(myproc()->killed){
@@ -112,12 +136,31 @@ piperead(struct pipe *p, char *addr, int n)
     }
     sleep(&p->nread, &p->lock); //DOC: piperead-sleep
   }
-  for(i = 0; i < n; i++){  //DOC: piperead-copy
-    if(p->nread == p->nwrite)
-      break;
-    addr[i] = p->data[p->nread++ % PIPESIZE];
+
+  // Figure out how many bytes we'll read total.
+  int amount_in_pipe = p->nwrite - p->nread;
+  int num_to_read = MIN(amount_in_pipe, n);
+
+  // Figure out the current position at which we'll start reading data.
+  int read_position = p->nread % PIPESIZE;
+
+  // Figure out how many bytes we should read before the buffer wraps.
+  int end_space = PIPESIZE - read_position;
+  int end_amount_in_pipe = MIN(num_to_read, end_space);
+
+  memmove(addr, &p->data[read_position], end_amount_in_pipe);
+
+  // Figure out how many bytes we have left to read.
+  int begin_amount = num_to_read - end_amount_in_pipe;
+
+  if (begin_amount) {
+    memmove(&addr[end_amount_in_pipe], p->data, begin_amount);
   }
+
+  p->nread += num_to_read;
+
   wakeup(&p->nwrite);  //DOC: piperead-wakeup
   release(&p->lock);
-  return i;
+
+  return num_to_read;
 }
