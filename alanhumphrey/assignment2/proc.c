@@ -8,19 +8,9 @@
 #include "spinlock.h"
 
 
-// ============================================================================
-// Biggest design question - do we:
-//    1.) make the queue standalone
-//    2.) couple the list with the ptable struct?
-//    3.) couple the queue with the proc struct?
-// Seems like ptable is best as it contains the lock to enqueue ready procs.
-// ============================================================================
-
-
 struct queue {
   struct proc * head;
   struct proc * tail;
-         uint   size;  // used for debugging
 };
 
 
@@ -40,34 +30,26 @@ extern void trapret(void);
 static void wakeup1(void *chan);
 
 
-
-// ============================================================================
-//   ready-queue-related functions
-// ============================================================================
-//
-
 // ============================================================================
 // initialize the specified queue
 static void
 init_queue(struct queue* q) {
 
-  q->head = q->tail = 0; // empty
-  q->size = 0;
+  q->head = q->tail = 0;  // empty
 }
 
 
 // ============================================================================
-// return 1 if size > 0, 0 otherwise
+// return 1 if head and tail both == NULL, 0 otherwise
 static int
 queue_empty(struct queue* q) {
 
-  return ( (q->size > 0) ? 1 : 0 );
+  return ( (q->head == 0) && (q->tail == 0)) ? 1 : 0;
 }
 
 
 // ============================================================================
-// enqueue p into specified queue
-//    append proc, adjust ptrs
+// enqueue p into specified queue (append proc at q->tail), adjust ptrs
 static void
 enqueue_proc(struct queue* q, struct proc* p) {
 
@@ -82,16 +64,13 @@ enqueue_proc(struct queue* q, struct proc* p) {
 
   // otherwise adjust ptrs
   else {
-    q->head->next = p;
-    p->prev       = q->head;
+    q->tail->next = p;
+    p->prev       = q->tail;
     p->next       = 0;
   }
 
   // for all cases, append by pointing queue tail to newly added proc
   q->tail = p;
-
-  // increment size (should do away with this, for debugging/interest now)
-  q->size++;
 }
 
 
@@ -107,20 +86,16 @@ dequeue_proc(struct queue* q) {
 
   struct proc* p = q->head;
 
-  // check for 1 element list
-  if (q->head == q->tail) {
-    q->head = q->tail = 0;
-  }
-
-  // otherwise, standard ptr adjustments for new head
-  else {
+  if (q->head->next) {
     q->head             = q->head->next;
-    q->head->prev->next = 0;
     q->head->prev       = 0;
+    p->prev = p->next   = 0;
   }
 
-  // decrement size (should do away with this, for debugging/interest now)
-  q->size--;
+  // 1 element list
+  else {
+    init_queue(q); // reinit to be empty
+  }
 
   return p;
 }
