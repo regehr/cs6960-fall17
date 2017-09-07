@@ -67,28 +67,16 @@ enqueue(struct proc_queue * q, struct proc * p) {
     }
 }
 
-void
-remove_proc(struct proc * p) {
-    if (p == NULL) {
-        return;
-    }
-    struct proc * prev = p->prev;
-    struct proc * next = p->next;
-    if (prev != NULL) {
-        prev->next = next;
-    }
-    if (next != NULL) {
-        next->prev = prev;
-    }
-    p->prev = NULL;
-    p->next = NULL;
-}
-
 struct proc *
 dequeue(struct proc_queue * q) {
     debugf("dequeue\n");
+    if (is_empty(q)) {
+        return NULL;
+    }
     struct proc * p = q->head;
-    remove_proc(p);
+    q->head = p->next;
+    q->head->prev = NULL;
+    p->next = NULL;
     return p;
 }
 
@@ -108,8 +96,7 @@ void
 pinit(void) {
     initlock(&ptable.lock, "ptable");
     // Initialize ready queue.
-    ptable.ready.head = NULL;
-    ptable.ready.tail = NULL;
+    init_queue(&ptable.ready, NULL);
 }
 
 // Must be called with interrupts disabled
