@@ -1,0 +1,16 @@
+
+Why can a long chain of commands such as "ls | wc | wc | wc ..." deadlock?
+
+It doesn't, but some implementation peculiarities can make it appear as if it did.
+
+The xv6 shell only reads commands of up to 100 characters long. Any longer and the
+line will get broken into two separate commands.
+
+Additionally, trailing pipe operators "|" cause the shell to effectively redirect
+output into a no-op command, causing nothing to be printed.
+
+So when you run a "ls | wc | wc ..." chain like that mentioned above, the shell breaks
+the chain into two commands, "ls | wc | ... | wc |", which prints nothing, and 
+"wc | wc | ...", which blocks reading standard in. This makes it appear as if the system is deadlocked,
+when in fact the final "wc" is just reading standard input indefinitely.
+
