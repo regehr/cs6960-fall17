@@ -8,9 +8,6 @@
 extern int main (const int argc, const char** argv);
 int faux_main (const int argc, const char** argv)
 {
-
-  printf("FAUX\n");
-
   // Call real main function and exit.
   main (argc, argv);
   exit();
