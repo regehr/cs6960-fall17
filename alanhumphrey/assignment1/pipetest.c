@@ -318,7 +318,7 @@ main( void )
   free(in_bytes);
   free(out_bytes);
 
-  return 0;
+  exit();
 }
 
 
