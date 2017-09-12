@@ -1,0 +1,45 @@
+Q: Determine why a long chain of pipes such as "ls | wc | wc | wc | ..." can
+deadlock?
+
+A: This is actually an accident. According to xv6's shell implementation, it
+will only take at most 100 characters as a single command. When we have a long
+pipe chain, what actually happened is that the long chain is seperated into
+several commands where each has at most 100 characters.
+
+Then, there are several different possibilities of separations depending on how
+the command is actually typed.
+
+1. If one of the command ends up to be `ls | wc | wc | ... | wc`. It works fine and
+provide the correct output.
+
+2. If one of the command ends up to be `wc | wc | wc | ... | wc`. The first
+`wc` will be stuck since lack of input.
+
+3. If one of the command ends up to be `ls | wc | wc | ... wc |`. It will end
+with no output.
+
+4. If one of the command ends up to be `| wc | wc | ... | wc`. It will be also
+report the right answer.
+
+5. If one of the command ends up to be `| wc | wc | ... | wc |`. It will end
+with no output.
+
+5. Any other break up ending with `w` or starting with `c` will end up with an
+error since they are not a valid command or program.
+
+Thus, as long as there is one breaking up results falled into pattern 2, it will
+get stuck.
+
+================================================================================
+
+Note that there are two possible ways to trigger the shell to start processing
+**a piece of break ups**. One is the user naturally type an enter. The other is
+that the stdin buffer of the linux shell if full so that the xv6 shell is able
+to have 100 characters.
+
+Another interesting finding is that once a command (or a part of the command) is
+done, xv6's shell will print out the next cursor. If we type another break line
+at this time, it will continue take the rest of the string in stdin as the new
+command. As a result, it can be the following scenario: the first part of the
+command ends up to be pattern 3 with no output but showing a new cursor and then
+it get stuck when we just type another break line.

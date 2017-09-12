@@ -44,7 +44,7 @@ init_queue(struct queue* q) {
 static int
 queue_empty(struct queue* q) {
 
-  return ( (q->head == 0) && (q->tail == 0)) ? 1 : 0;
+  return ( (q->head == 0) && (q->tail == 0) );
 }
 
 
@@ -69,7 +69,7 @@ enqueue_proc(struct queue* q, struct proc* p) {
     p->next       = 0;
   }
 
-  // for all cases, append by pointing queue tail to newly added proc
+  // for all cases, adjust tail ptr -> to newly added proc
   q->tail = p;
 }
 
