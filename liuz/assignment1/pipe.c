@@ -8,7 +8,7 @@
 #include "sleeplock.h"
 #include "file.h"
 
-#define PIPESIZE 2048
+#define PIPESIZE 4020
 
 // memcpy borrowed from
 // http://www.danielvik.com/2010/02/fast-memcpy-in-c.html
