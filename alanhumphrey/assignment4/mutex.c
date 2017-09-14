@@ -4,12 +4,8 @@
 #include "spinlock.h"
 
 
-#define STDOUT 1
-#define STDERR 2
 #define MAX_MUTEXES 16
 
-
-static int mutex_error_check(int mtx_id);
 
 // =================================================================================================
 // The mutex type itself, using existing xv6 spinlock.
@@ -26,9 +22,9 @@ struct mutex {
 //   Naming scheme will be integer based, easy with a static list of mutexes.
 struct {
 
-  struct mutex m_list[MAX_MUTEXES];  // the list of mutexes (static number of elements for now)
+  struct mutex list[MAX_MUTEXES];  // the list of mutexes (static number of elements for now)
   char   states[MAX_MUTEXES];        // states:   0-released,   1-acquired
-  struct spinlock lock;            // protect access to the list of mutexes
+  struct spinlock lock;              // protect access to the list of mutexes
 
 } mutex_list;
 
@@ -44,6 +40,26 @@ mutex_error_check(int mtx_id) {
   }
 
   return 0;
+}
+
+
+// =================================================================================================
+// This is called from main() in main.c
+//   Initialize our list of mutexes
+void
+mutex_init(void) {
+
+  initlock(&mutex_list.lock, "mutex_list");
+
+  // Initialize each spinlock (per spinlock API), also acquired field and state
+  for (int i = 0; i < MAX_MUTEXES; ++i) {
+    initlock(&mutex_list.list[i].lock, "mutex");
+    mutex_list.list[i].acquired = 0;             // not initially acquired
+    mutex_list.states[i]        = 0;             // initially available
+  }
+
+  // full memory barrier before proceeding (probably don't need this)
+  __sync_synchronize();
 }
 
 
@@ -82,6 +98,7 @@ mutex_destroy(int mtx_id) {
 
   acquire(&mutex_list.lock);
   {
+    // check if destroying an unused mutex
     if (mutex_list.states[mtx_id] == 0) {
       release(&mutex_list.lock);
       return -1;
@@ -105,7 +122,7 @@ mutex_acquire(int mtx_id) {
     return -1;
   }
 
-  struct mutex* mtx = &mutex_list.m_list[mtx_id];
+  struct mutex* mtx = &mutex_list.list[mtx_id];
 
   acquire(&mtx->lock);
   {
@@ -131,10 +148,16 @@ mutex_release(int mtx_id) {
     return -1;
   }
 
-  struct mutex* mtx = &mutex_list.m_list[mtx_id];
+  struct mutex* mtx = &mutex_list.list[mtx_id];
 
   acquire(&mtx->lock);
   {
+    // check if releasing an unacquired mutex
+    if (mtx->acquired == 0) {
+      release(&mtx->lock);
+      return -1;
+    }
+
     mtx->acquired = 0;
     wakeup(mtx);
   }
@@ -143,23 +166,5 @@ mutex_release(int mtx_id) {
   return 0;
 }
 
-
-// =================================================================================================
-// This is called from main() in main.c
-void
-mutex_init(void) {
-
-  initlock(&mutex_list.lock, "mutex_list");
-
-  // Initialize each spinlock (per spinlock API), acquired field and used state
-  for (int i = 0; i < MAX_MUTEXES; ++i) {
-    initlock(&mutex_list.m_list[i].lock, "mutex");
-    mutex_list.m_list[i].acquired = 0;             // not initially acquired
-    mutex_list.states[i]          = 0;             // initially available
-  }
-
-  // full memory barrier before proceeding
-  __sync_synchronize();
-}
 
 
