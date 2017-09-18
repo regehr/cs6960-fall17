@@ -155,3 +155,5 @@ piperead(struct pipe *p, char *addr, int n)
   p->nread = p->nread + n;
   wakeup(&p->nwrite);  //DOC: piperead-wakeup
   release(&p->lock);
+  return n;
+}
