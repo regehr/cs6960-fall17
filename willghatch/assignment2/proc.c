@@ -7,12 +7,64 @@
 #include "proc.h"
 #include "spinlock.h"
 
+#define NULL 0
+
 struct {
   struct spinlock lock;
+  struct proc *readyqueue_head;
+  struct proc *readyqueue_tail;
+  struct proc *sleepqueue_head;
   struct proc proc[NPROC];
-  struct proc *readyfront;
-  struct proc *readytail;
 } ptable;
+
+void
+readyqueue_enqueue(struct proc *p){
+  p->queue_next = NULL;
+  if(ptable.readyqueue_head == NULL){
+    if(ptable.readyqueue_tail != NULL)
+      panic("readyqueue_head is null but readyqueue_tail isn't");
+    ptable.readyqueue_head = p;
+    ptable.readyqueue_tail = p;
+    p->queue_prev = NULL;
+  } else {
+    ptable.readyqueue_tail->queue_next = p;
+    p->queue_prev = ptable.readyqueue_tail;
+    ptable.readyqueue_tail = p;
+  }
+}
+
+void
+sleepqueue_enqueue(struct proc *p){
+  p->queue_next = ptable.sleepqueue_head;
+  if (ptable.sleepqueue_head != NULL){
+    ptable.sleepqueue_head->queue_prev = p;
+  }
+  p->queue_prev = NULL;
+  ptable.sleepqueue_head = p;
+}
+
+void
+remove_from_queues(struct proc *p){
+  struct proc *next = p->queue_next;
+  struct proc *prev = p->queue_prev;
+  if(next != NULL){
+    next->queue_prev = prev;
+  }
+  if(prev != NULL){
+    prev->queue_next = next;
+  }
+  if(ptable.readyqueue_head == p){
+    ptable.readyqueue_head = next;
+  }
+  if(ptable.readyqueue_tail == p){
+    ptable.readyqueue_tail = next;
+  }
+  if(ptable.sleepqueue_head == p){
+    ptable.sleepqueue_head = p->queue_next;
+  }
+  p->queue_next = NULL;
+  p->queue_prev = NULL;
+}
 
 static struct proc *initproc;
 
@@ -25,25 +77,15 @@ static void wakeup1(void *chan);
 void
 pinit(void)
 {
+  ptable.readyqueue_head = NULL;
+  ptable.readyqueue_tail = NULL;
   initlock(&ptable.lock, "ptable");
-  ptable.readyfront = ptable.readytail = 0;
 }
 
 // Must be called with interrupts disabled
 int
 cpuid() {
   return mycpu()-cpus;
-}
-
-void
-make_runnable(struct proc* p) {
-  p->state = RUNNABLE;
-  p->readynext = 0;
-  if (ptable.readytail)
-	  ptable.readytail->readynext = p;
-  ptable.readytail = p;
-  if (!ptable.readyfront)
-	  ptable.readyfront = p;
 }
 
 // Must be called with interrupts disabled to avoid the caller being rescheduled
@@ -162,8 +204,9 @@ userinit(void)
   // because the assignment might not be atomic.
   acquire(&ptable.lock);
 
-  make_runnable(p);
-  
+  p->state = RUNNABLE;
+  readyqueue_enqueue(p);
+
   release(&ptable.lock);
 }
 
@@ -228,7 +271,8 @@ fork(void)
 
   acquire(&ptable.lock);
 
-  make_runnable(np);
+  readyqueue_enqueue(np);
+  np->state = RUNNABLE;
 
   release(&ptable.lock);
 
@@ -343,30 +387,31 @@ scheduler(void)
   for(;;){
     // Enable interrupts on this processor.
     sti();
+
     // Loop over process table looking for process to run.
     acquire(&ptable.lock);
- 
-    p = ptable.readyfront;
-	if (p) {
-      ptable.readyfront = ptable.readyfront->readynext;
-	  if (!ptable.readyfront) ptable.readytail = 0;
+    if(ptable.readyqueue_head != NULL){
+      p = ptable.readyqueue_head;
+      if(p->state != RUNNABLE)
+        panic("process in ready queue not runnable");
 
-	  // Switch to chosen process.  It is the process's job
+      // Switch to chosen process.  It is the process's job
       // to release ptable.lock and then reacquire it
       // before jumping back to us.
       c->proc = p;
       switchuvm(p);
+      remove_from_queues(p);
       p->state = RUNNING;
-  
+
       swtch(&(c->scheduler), p->context);
       switchkvm();
-  
+
       // Process is done running for now.
       // It should have changed its p->state before coming back.
       c->proc = 0;
     }
-
     release(&ptable.lock);
+
   }
 }
 
@@ -401,7 +446,8 @@ void
 yield(void)
 {
   acquire(&ptable.lock);  //DOC: yieldlock
-  make_runnable(myproc());
+  myproc()->state = RUNNABLE;
+  readyqueue_enqueue(myproc());
   sched();
   release(&ptable.lock);
 }
@@ -453,6 +499,7 @@ sleep(void *chan, struct spinlock *lk)
   // Go to sleep.
   p->chan = chan;
   p->state = SLEEPING;
+  sleepqueue_enqueue(p);
 
   sched();
 
@@ -474,9 +521,16 @@ wakeup1(void *chan)
 {
   struct proc *p;
 
-  for(p = ptable.proc; p < &ptable.proc[NPROC]; p++)
-    if(p->state == SLEEPING && p->chan == chan)
-		make_runnable(p);
+  for(p = ptable.sleepqueue_head; p != NULL; p = p->queue_next){
+    if(p->state != SLEEPING){
+      panic("non-sleeping process in sleep queue");
+    }
+    if(p->chan == chan){
+      p->state = RUNNABLE;
+      remove_from_queues(p);
+      readyqueue_enqueue(p);
+    }
+  }
 }
 
 // Wake up all processes sleeping on chan.
@@ -502,7 +556,7 @@ kill(int pid)
       p->killed = 1;
       // Wake process from sleep if necessary.
       if(p->state == SLEEPING)
-		make_runnable(p);
+        p->state = RUNNABLE;
       release(&ptable.lock);
       return 0;
     }

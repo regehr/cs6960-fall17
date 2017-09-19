@@ -24,6 +24,8 @@
   typedef unsigned int uint;
 #endif
 
+#define STDOUT     1
+#define STDERR     2
 #define READ       0
 #define WRITE      1
 #define BUF_SIZE   512
@@ -71,7 +73,7 @@ single_process_test( uint const * const in, uint * out, const int iteration )
 #ifdef LINUX
     printf("pipe creation failed \n");
 #else
-    printf(2, "pipe creation failed \n");
+    printf(STDERR, "pipe creation failed \n");
 #endif
     return -1;
   }
@@ -90,7 +92,7 @@ single_process_test( uint const * const in, uint * out, const int iteration )
 #ifdef LINUX
       printf("%u bytes written but only %u bytes read (test %u/%d) \n", bytes_written, bytes_read, iteration, NUM_TESTS);
 #else
-      printf(2, "%d bytes written but only %d bytes read (test %d/%d) \n", bytes_written, bytes_read, iteration, NUM_TESTS);
+      printf(STDERR, "%d bytes written but only %d bytes read (test %d/%d) \n", bytes_written, bytes_read, iteration, NUM_TESTS);
 #endif
       return -1;
     }
@@ -107,7 +109,7 @@ single_process_test( uint const * const in, uint * out, const int iteration )
 #ifdef LINUX
     printf("\nin_bytes[%u] != out_bytes[%u] (test %u/%d) \n", i, i, iteration, NUM_TESTS);
 #else
-    printf(2, "\nin_bytes[%d] != out_bytes[%d] (test %d/%d) \n", i, i, iteration, NUM_TESTS);
+    printf(STDERR, "\nin_bytes[%d] != out_bytes[%d] (test %d/%d) \n", i, i, iteration, NUM_TESTS);
 #endif
     return -1;
     }
@@ -129,7 +131,7 @@ multi_process_test(uint * in, uint * out, const uint iteration)
 #ifdef LINUX
     printf("pipe creation failed \n");
 #else
-    printf(2, "pipe creation failed \n");
+    printf(STDERR, "pipe creation failed \n");
 #endif
     return -1;
   }
@@ -156,7 +158,7 @@ multi_process_test(uint * in, uint * out, const uint iteration)
 #ifdef LINUX
         printf("pipe write failed \n");
 #else
-        printf(2, "pipe write failed \n");
+        printf(STDERR, "pipe write failed \n");
 #endif
         return -1;
       }
@@ -197,7 +199,7 @@ multi_process_test(uint * in, uint * out, const uint iteration)
 #ifdef LINUX
         printf("pipe read failed \n");
 #else
-        printf(2, "pipe read failed \n");
+        printf(STDERR, "pipe read failed \n");
 #endif
         return -1;
       }
@@ -223,7 +225,7 @@ multi_process_test(uint * in, uint * out, const uint iteration)
 #ifdef LINUX
       printf("\nin_bytes[%u] != out_bytes[%u] (test %u/%d) \n", i, i, iteration, NUM_TESTS);
 #else
-      printf(2, "\nin_bytes[%d] != out_bytes[%d] (test %d/%d) \n", i, i, iteration, NUM_TESTS);
+      printf(STDERR, "\nin_bytes[%d] != out_bytes[%d] (test %d/%d) \n", i, i, iteration, NUM_TESTS);
 #endif
       return -1;
     }
@@ -273,14 +275,14 @@ main( void )
 #ifdef LINUX
   printf("single process pipe test %u/%u FAILED \n", sp_test_num, NUM_TESTS);
 #else
-  printf(2, "single process pipe test %d/%d FAILED \n", sp_test_num, NUM_TESTS);
+  printf(STDERR, "single process pipe test %d/%d FAILED \n", sp_test_num, NUM_TESTS);
 #endif
     }
     else {
 #ifdef LINUX
       printf("single process pipe test %u/%u  PASSED \n", sp_test_num, NUM_TESTS);
 #else
-      printf(1, "single process pipe test %d/%d  PASSED \n", sp_test_num, NUM_TESTS);
+      printf(STDOUT, "single process pipe test %d/%d  PASSED \n", sp_test_num, NUM_TESTS);
 #endif
     }
   }
@@ -302,14 +304,14 @@ main( void )
 #ifdef LINUX
   printf(" multi process pipe test %u/%u FAILED \n", mp_test_num, NUM_TESTS);
 #else
-  printf(2, " multi process pipe test %d/%d FAILED \n", mp_test_num, NUM_TESTS);
+  printf(STDERR, " multi process pipe test %d/%d FAILED \n", mp_test_num, NUM_TESTS);
 #endif
     }
     else {
 #ifdef LINUX
       printf(" multi process pipe test %u/%u  PASSED \n", mp_test_num, NUM_TESTS);
 #else
-      printf(1, " multi process pipe test %d/%d  PASSED \n", mp_test_num, NUM_TESTS);
+      printf(STDOUT, " multi process pipe test %d/%d  PASSED \n", mp_test_num, NUM_TESTS);
 #endif
     }
   }
@@ -318,7 +320,12 @@ main( void )
   free(in_bytes);
   free(out_bytes);
 
-  return 0;
+#ifdef LINUX
+      return(EXIT_SUCCESS);
+#else
+      return 0;
+#endif
+
 }
 
 

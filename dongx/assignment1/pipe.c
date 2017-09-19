@@ -103,10 +103,10 @@ pipewrite(struct pipe *p, char *addr, int n)
       int bytes_to_end = PIPESIZE - (p->nwrite % PIPESIZE);
   
       if (bytes_to_end > bytes_to_write) {
-        memcpy(p->data + (p->nwrite % PIPESIZE), addr, bytes_to_write);
+        memcpy(p->data + (p->nwrite % PIPESIZE), addr + i, bytes_to_write);
       } else {
-        memcpy(p->data + (p->nwrite % PIPESIZE), addr, bytes_to_end);
-        memcpy(p->data, addr + bytes_to_end, bytes_to_write - bytes_to_end);
+        memcpy(p->data + (p->nwrite % PIPESIZE), addr + i, bytes_to_end);
+        memcpy(p->data, addr + i + bytes_to_end, bytes_to_write - bytes_to_end);
       }
       
       p->nwrite += bytes_to_write;

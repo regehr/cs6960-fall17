@@ -123,7 +123,8 @@ pipewrite(struct pipe *p, char *addr, int n)
     }
     //p->data[p->nwrite++ % PIPESIZE] = addr[i];
 
-		int n1 = PIPESIZE - (p->nwrite - p->nread);
+		int n1 = n-i;
+		n1 = n1<=(PIPESIZE - (p->nwrite - p->nread))? n1 : (PIPESIZE - (p->nwrite - p->nread));
 		int start_index = p->nwrite%PIPESIZE;
 		n1 = n1<=(PIPESIZE-start_index) ? n1 : (PIPESIZE-start_index);
 		memcopy(p->data+start_index, addr+i, n1);
@@ -159,7 +160,7 @@ piperead(struct pipe *p, char *addr, int n)
 	
 	n = n<=(p->nwrite - p->nread) ? n : (p->nwrite - p->nread);
 	int start_index = p->nread % PIPESIZE;
-	int n1;
+	int n1 = 0;
 	if(start_index + n > PIPESIZE){
 		n1 = PIPESIZE - start_index;
 		memcopy(addr, p->data+start_index, n1);
@@ -173,5 +174,5 @@ piperead(struct pipe *p, char *addr, int n)
 
   wakeup(&p->nwrite);  //DOC: piperead-wakeup
   release(&p->lock);
-  return n;
+  return n+n1;
 }
