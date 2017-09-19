@@ -9,6 +9,7 @@ struct mutex {
   struct spinlock lock;
 };
 
+void minit(void);
 int mutex_create(int tag);
 int mutex_acquire(int tag);
 int mutex_release(int tag);

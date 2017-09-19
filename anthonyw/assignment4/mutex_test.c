@@ -3,6 +3,7 @@
 #include "syscall.h"
 
 #define MTAG 256
+#define PLIM 3
 
 //This isn't much of a test at all, but due to other homework I didn't have
 //as much time to actually test.
@@ -10,21 +11,18 @@
 //that), the mutex should work.
 int main(int argc, char **argv)
 {
+  int i;
   mutex_create(MTAG);
-  if(fork() == 0){
-    sleep(2);
-    mutex_acquire(MTAG);
-    printf(1, "child acquired lock\n");
-    mutex_release(MTAG);
-    printf(1, "child released lock\n");
-    exit();
+  for(i = 1; i <= PLIM; i++){
+    if(fork() == 0){
+      mutex_acquire(MTAG);
+      printf(1, "child acquired lock\n");
+      mutex_release(MTAG);
+      printf(1, "child released lock\n");
+      exit();
+    }
   }
-  mutex_acquire(MTAG);
-  printf(1, "parent acquired lock\n");
-  mutex_release(MTAG);
-  printf(1, "parent released lock\n");
 
-  wait();
   mutex_destroy(MTAG);
   exit();
 }
