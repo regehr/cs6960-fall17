@@ -10,7 +10,6 @@
 
 #include "mutex.h"
 
-
 struct {
   struct mutex mutexes[NMTX];
   struct spinlock lock;

@@ -22,7 +22,6 @@ int main(int argc, char **argv)
       exit();
     }
   }
-
   mutex_destroy(MTAG);
   exit();
 }
