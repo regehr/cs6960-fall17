@@ -15,7 +15,7 @@ struct {
 } mtable;
 
 void
-init_mutex_table(void) {
+init_mutex(void) {
   initlock(&mtable.lock, "mtable");
 
   // Set all mutexes to available
@@ -27,16 +27,15 @@ init_mutex_table(void) {
 }
 
 int
-mutex_create(int *mutex_id) {
+mutex_create(void) {
   acquire(&mtable.lock);
 
   int i;
   for (i = 0; i < NUM_MUTEX; i++) {
     if (mtable.mutexes[i].in_use == 0) {
       mtable.mutexes[i].in_use = 1;
-      *mutex_id = i;
       release(&mtable.lock);
-      return 0;
+      return i;
     }
   }
 
