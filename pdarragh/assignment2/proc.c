@@ -10,7 +10,7 @@
 #define NULL 0
 #define DEBUG 0
 
-void
+static inline void
 debugf(char *fmt, ... ) {
     if (DEBUG) {
         cprintf(fmt);
@@ -39,17 +39,24 @@ static void wakeup1(void *chan);
  *
  */
 
+int
+is_empty(struct proc_queue * q) {
+    if ((q->head == NULL) ^ (q->tail == NULL)) {
+        panic("invalid queue state\n");
+    }
+    return ((q->head == NULL) && (q->tail == NULL));
+}
+
 void
-init_queue(struct proc_queue * list, struct proc * p) {
-    list->head = p;
-    list->tail = p;
-    list->empty = 1;
+init_queue(struct proc_queue * q, struct proc * p) {
+    q->head = p;
+    q->tail = p;
 }
 
 void
 enqueue(struct proc_queue * q, struct proc * p) {
     debugf("enqueue\n");
-    if (q->empty) {
+    if (is_empty(q)) {
         // New element is the only element.
         init_queue(q, p);
     } else {
@@ -60,31 +67,16 @@ enqueue(struct proc_queue * q, struct proc * p) {
     }
 }
 
-void
-remove_proc(struct proc * p) {
-    if (p == NULL) {
-        return;
-    }
-    struct proc * prev = p->prev;
-    struct proc * next = p->next;
-    if (prev != NULL) {
-        prev->next = next;
-    }
-    if (next != NULL) {
-        next->prev = prev;
-    }
-    p->prev = NULL;
-    p->next = NULL;
-}
-
 struct proc *
 dequeue(struct proc_queue * q) {
     debugf("dequeue\n");
-    struct proc * p = q->head;
-    remove_proc(p);
-    if ((q->head == NULL) && (q->tail == NULL)) {
-        q->empty = 0;
+    if (is_empty(q)) {
+        return NULL;
     }
+    struct proc * p = q->head;
+    q->head = p->next;
+    q->head->prev = NULL;
+    p->next = NULL;
     return p;
 }
 
@@ -95,8 +87,16 @@ dequeue(struct proc_queue * q) {
  */
 
 void
+make_runnable(struct proc * p) {
+    p->state = RUNNABLE;
+    enqueue(&ptable.ready, p);
+}
+
+void
 pinit(void) {
     initlock(&ptable.lock, "ptable");
+    // Initialize ready queue.
+    init_queue(&ptable.ready, NULL);
 }
 
 // Must be called with interrupts disabled
@@ -148,9 +148,6 @@ allocproc(void) {
     char *sp;
 
     acquire(&ptable.lock);
-
-    // Initialize ready queue.
-    (&ptable.ready)->empty = 1;
 
     for (p = ptable.proc; p < &ptable.proc[NPROC]; p++)
         if (p->state == UNUSED)
@@ -221,8 +218,7 @@ userinit(void) {
     // because the assignment might not be atomic.
     acquire(&ptable.lock);
 
-    p->state = RUNNABLE;
-    enqueue(&ptable.ready, p);
+    make_runnable(p);
 
     release(&ptable.lock);
 }
@@ -286,8 +282,7 @@ fork(void) {
 
     acquire(&ptable.lock);
 
-    np->state = RUNNABLE;
-    enqueue(&ptable.ready, np);
+    make_runnable(np);
 
     release(&ptable.lock);
 
@@ -400,28 +395,30 @@ scheduler(void) {
         // Enable interrupts on this processor.
         sti();
 
-        // Loop over process table looking for process to run.
+        // Dequeue a process to run.
         acquire(&ptable.lock);
-        for (p = ptable.proc; p < &ptable.proc[NPROC]; p++) {
-            if (p->state != RUNNABLE)
-                continue;
-
-            // Switch to chosen process.  It is the process's job
-            // to release ptable.lock and then reacquire it
-            // before jumping back to us.
-            c->proc = p;
-            switchuvm(p);
-            p->state = RUNNING;
-
-            swtch(&(c->scheduler), p->context);
-            switchkvm();
-
-            // Process is done running for now.
-            // It should have changed its p->state before coming back.
-            c->proc = 0;
+        p = dequeue(&ptable.ready);
+        if (p == NULL) {
+            // No RUNNABLE process exists.
+            debugf("no runnable process\n");
+            release(&ptable.lock);
+            continue;
         }
-        release(&ptable.lock);
+        // Switch to chosen process.  It is the process's job
+        // to release ptable.lock and then reacquire it
+        // before jumping back to us.
+        c->proc = p;
+        switchuvm(p);
+        p->state = RUNNING;
 
+        swtch(&(c->scheduler), p->context);
+        switchkvm();
+
+        // Process is done running for now.
+        // It should have changed its p->state before coming back.
+        c->proc = 0;
+
+        release(&ptable.lock);
     }
 }
 
@@ -455,8 +452,7 @@ void
 yield(void) {
     acquire(&ptable.lock);  //DOC: yieldlock
     struct proc * p = myproc();
-    p->state = RUNNABLE;
-    enqueue(&ptable.ready, p);
+    make_runnable(p);
     sched();
     release(&ptable.lock);
 }
@@ -528,8 +524,7 @@ wakeup1(void *chan) {
 
     for (p = ptable.proc; p < &ptable.proc[NPROC]; p++)
         if (p->state == SLEEPING && p->chan == chan) {
-            p->state = RUNNABLE;
-            enqueue(&ptable.ready, p);
+            make_runnable(p);
         }
 }
 
@@ -554,8 +549,7 @@ kill(int pid) {
             p->killed = 1;
             // Wake process from sleep if necessary.
             if (p->state == SLEEPING) {
-                p->state = RUNNABLE;
-                enqueue(&ptable.ready, p);
+                make_runnable(p);
             }
             release(&ptable.lock);
             return 0;
