@@ -60,7 +60,7 @@ argptr(int n, char **pp, int size)
 {
   int i;
   struct proc *curproc = myproc();
- 
+
   if(argint(n, &i) < 0)
     return -1;
   if(size < 0 || (uint)i >= curproc->sz || (uint)i+size > curproc->sz)
@@ -104,6 +104,11 @@ extern int sys_wait(void);
 extern int sys_write(void);
 extern int sys_uptime(void);
 
+extern int sys_mutex_create(void);
+extern int sys_mutex_acquire(void);
+extern int sys_mutex_release(void);
+extern int sys_mutex_destroy(void);
+
 static int (*syscalls[])(void) = {
 [SYS_fork]    sys_fork,
 [SYS_exit]    sys_exit,
@@ -126,6 +131,10 @@ static int (*syscalls[])(void) = {
 [SYS_link]    sys_link,
 [SYS_mkdir]   sys_mkdir,
 [SYS_close]   sys_close,
+[SYS_mutex_create]  sys_mutex_create,
+[SYS_mutex_acquire] sys_mutex_acquire,
+[SYS_mutex_release] sys_mutex_release,
+[SYS_mutex_destroy] sys_mutex_destroy,
 };
 
 void

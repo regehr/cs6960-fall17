@@ -91,6 +91,13 @@ void            end_op();
 extern int      ismp;
 void            mpinit(void);
 
+// mutex.c
+void            initialize_mutexes(void);
+int             mutex_create(void);
+int             mutex_acquire(int);
+int             mutex_release(int);
+int             mutex_destroy(int);
+
 // picirq.c
 void            picenable(int);
 void            picinit(void);

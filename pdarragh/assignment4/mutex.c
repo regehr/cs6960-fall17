@@ -1,4 +1,6 @@
-#include "spinlock.c"
+#include "types.h"
+#include "defs.h"
+#include "spinlock.h"
 
 #define NULL 0
 #define TRUE 1
