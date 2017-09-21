@@ -1,0 +1,33 @@
+ # In all circumstances xv6 eventually time-slices away from a CPU-bound process
+
+We start with the assumption that lapic or ioapic eventually delivers a timer 
+interrupt to each processor. If so, then the Timer interrupt is going to trigger 
+the trap call on line 3351, and reach code on line 3365 according to the interrupt 
+vector table setup on line 3322. This wakeup call on line 3368 ensures that all 
+processes sleeping on the address of "tick" wakeup and are "RUNNABLE". 
+Processes can be put to sleep on key "tick" by the kernel in response to the 
+system call sleep(int) (3729).
+
+Anyway, after waking up all processes sleeping on the "tick", the control reaches 
+line 3424 if the process has not already been killed. The yield call sets the 
+process state to "RUNNABLE" (2780) and switches content to the scheduler. 
+The scheduler schedules the next RUNNABLE process(well the first RUNNABLE process 
+as per xv6 original, but the next in queue after the modification). 
+
+A Timer Interrupt vector/selector points to a descriptor that is an interrupt 
+gate, i.e. interrupts are disabled during the handling of this particular 
+interrupt(0971). So once a timer interrupt arrives no other interrupt can preempt 
+it until it is handled. So we see that a timer interrupt on a cpu leads to a call 
+to the scheduler, which will schedule the next RUNNABLE process. So every process 
+is time-sliced on the CPU.
+
+Visiting back our assumption that the lapic eventually delivers a timer interrupt, 
+we can easily see that this is the case. Interrupts are disabled in xv6 during 
+boot loader, setting up cpus and while setting up the task state segment (1875). 
+But they are enabled in the scheduler (2714). Also, each interrupt handler itself 
+either returns, exits, panics, or yields context (3405-3428). Therefore, the 
+interrupts are enabled all the time since the kernel starts the first user process, 
+except for breif periods where the kernel is already servicing an interrupt or 
+running a critical code fragments that should not be interrupted. In either case, 
+the interrupts are enabled immediately after, and hence we can be sure that the 
+timer interrupt will eventually reach each cpu.
