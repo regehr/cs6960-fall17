@@ -1,0 +1,17 @@
+"Proof" that xv6 always pre-empts processes to schedule other ones.
+
+main.c:
+`mpinit()` is called early in the main function (there is no control flow here, so it will always be called if the kernel doesn't crash before getting there).  `mpinit()` searches for an MP configuration table supplied by the BIOS, and panics if it's not found.  Next it sets up the lapic pointer according to the found configuration.
+
+`main` next calls lapicinit().
+
+lapic.c:
+In lapicinit() on lines 67-69 the timer interrupt hardware is configured.  It is set to issue an interrupt (specifically an IRQ_TIMER interrupt) every 10 million cycles.  The hardware will reset to the given countdown start number each time it reaches zero.  This configuration is never changed, so the interrupts will keep coming as long as the processor is running (though this proof does not hold in case of bit flips caused by radiation).  The only control flow that could make it skip this code is if the lapic pointer is unititialized, which can only happen if mpinit() did find a configuration but it had a null lapicaddr.  This means the configuration is bad, which is a BIOS error.
+
+trap.c:
+The `trap` function (line 37) is called whenever an interrupt is raised.  There is a case analysis on the trap number.  If it is due to the IRQ timer the interrupt is acknowledged, then the code jumps to line 95.  There are some more cases checked until the end of the function.  Only two matter -- if a program has been killed but hasn't yet returned control, it calls exit on line 101.  If the process is still running the case on line 105 will call the `yield` function.  This, of course, is the function that sets the state to `RUNNABLE` instead of `RUNNING` and calls the scheduler.
+
+
+Therefore, processes will always yield.  Given that the BIOS sets up the MP configuration table correctly, that the lapic does in fact interrupt each core, and given that there are no other hardware errors (including unlikely errors like bit flips due to running in harsh radioactive environments, the possibility of divine intervention or the possibility of our universe being itself a computer simulation subject to change by the users or computer systems running said simulation, etc), and given that all the other stuff that this proof glosses over doesn't have bugs that invalidate things (like the kernel not checking a pointer that it writes to that just happens to be set to the address of the timer interrupt configuration), etc.
+
+∎
