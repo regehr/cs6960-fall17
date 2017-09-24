@@ -1,0 +1,16 @@
+Proof
+
+At line 23 of the 'main.c', the main function calls the 'lapicinit()'
+function. This function is implemented in the 'lapic.c' and initialize the
+interrupt controller as the operating system boots. During the interrupt
+initialization, Line 67-69 sets a timer and automatically triggers an interrupt
+at a constant time interval.
+
+The 'trap' function in 'trap.c' is called whenever an interrupt is fired. As
+line 105-107 shows, the trap function checks the source of trap and calles the
+'yield' function each time when the the process is 'RUNNING' and the timer
+interrupt fires. The 'yield' function is implemented in 'proc.c' and it calles
+the scheduler. Thus that xv6 always pre-empts processes to schedule other
+ones. Xv6 is a time-slicing operating system.
+
+
