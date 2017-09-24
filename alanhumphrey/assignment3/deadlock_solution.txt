@@ -1,0 +1,93 @@
+
+#---------------------------------------------------------------------------------------------------
+#   Determine why a long chain of pipes such as "ls |  wc | wc | wc | ..." can deadlock.
+#---------------------------------------------------------------------------------------------------
+
+
+Below is the process I went through to figure this out, with conclusion at the end.
+
+My first attepts involved using remote debugging of xv6 (via qemu-gdb build target) and trying to see what the process was
+doing, e.g. was it actually hung, waiting, etc, by looking at the last forked process in the chain.
+
+Didn't have much luck getting remote gdb debugging going so I resorted to looking at code.
+
+
+
+---------------------------------------------------------------------------------------------------
+1.) Read sh.c to understand how the command is built and used, e.g. parsed, stored, executed, etc.
+---------------------------------------------------------------------------------------------------
+int
+main(void)
+{
+  static char buf[100];
+  ...     ^^^^^^^^^^^^^^^^
+
+  ...
+  // Read and run input commands.
+  while(getcmd(buf, sizeof(buf)) >= 0){
+    ...            ^^^^^^^^^^^^^^^
+    if(fork1() == 0) { runcmd(parsecmd(buf)); }
+                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    wait();
+  }
+  exit();
+}
+
+
+It would appear that buf[] is only 100 chars long..... so what happens if the command line is > 100 chars?
+
+
+
+---------------------------------------------------------------------------------------------------
+2.) Now find longest command that works and the next largest viable command that hangs - debug?
+---------------------------------------------------------------------------------------------------
+
+# this works fine
+
+ls | wc | wc | wc | wc | wc | wc | wc | wc | wc | wc | wc | wc | wc | wc | wc | wc | wc | wc | wc
+
+
+# this hangs ((> 100 characters))
+ls | wc | wc | wc | wc | wc | wc | wc | wc | wc | wc | wc | wc | wc | wc | wc | wc | wc | wc | wc | wc
+                                                                                                    ^ 101th char
+                                                                                                    
+
+
+
+---------------------------------------------------------------------------------------------------
+3.) Test the above, looking at the while loop in main() of sh.c
+---------------------------------------------------------------------------------------------------
+
+What happens here is that, only up to 100 chars (length of buf[]) at a time get used
+as a cmd, e.g. if(fork1() == 0) { uncmd(parsecmd(buf)); }
+
+Basically the long line in 2.) above gets chopped up into 2 separate commands
+
+
+
+---------------------------------------------------------------------------------------------------
+4.) Reason for "hangining" behaviour
+---------------------------------------------------------------------------------------------------
+
+As the length of the input buffer is 100 chars, the line:
+
+ls | wc | wc | wc | wc | wc | wc | wc | wc | wc | wc | wc | wc | wc | wc | wc | wc | wc | wc | wc | wc
+
+gets executed as:
+
+ls | wc | wc | wc | wc | wc | wc | wc | wc | wc | wc | wc | wc | wc | wc | wc | wc | wc | wc | wc |
+
+The final pipe is waiting for input that will never arrive, hence never being run to get a clean exit.
+
+
+---------------------------------------------------------------------------------------------------
+5.) Bottom line
+---------------------------------------------------------------------------------------------------
+
+Though we have no forward progress being made, this is not actually a deadlock, but rather a
+deficiency in the xv6 shell implementation. Clearly, this could be fixed wth a longer buffer
+and/or logic to deal with empty pipe args, etc.
+
+
+
+

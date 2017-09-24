@@ -1,0 +1,36 @@
+First, the setup for interrupts.
+
+The lapicinit() function sets up the LAPIC for each processor, including
+periodic timer interrupts. We assume that this code is set up correctly,
+and that timer interrupts will (eventually) be delivered to each core.
+
+The tvinit() function sets up the IDT for all of the processors to point to the
+corresponding entries in the vector array.
+
+The vector array (vectors[]) is defined in vectors.S. Each entry in the vectors
+array is the address of the entry point to start handling that vector. Each
+vector entry point pushes some information about which interrupt was triggered,
+then jumps to alltraps() (defined in trapasm.S), which calls the trap()
+function after constructing the trap frame.
+
+When the trap() function is called, the trap number will be checked. The number
+will correspond to IRQ_TIMER. lapiceoi() is called to acknowledge the
+interrupt, and then the logic after the switch statement triggers.
+
+If the trap number was IRQ_TIMER (which it was, in this case), and the state of
+the current process is RUNNING (which would also be the case for a process
+running on a core), then yield() is called to yield the cpu.
+
+The yield() function sets our process's state to RUNNABLE and calls sched to
+schedule.
+
+sched() switches contexts to the cpu's scheduler() function, which searches the
+process table for the next runnable process. Another process should be found
+that we can run, and we set up the new process and begin running it.
+
+A process cannot escape being scheduled, because the timer interrupt is set up
+by LAPIC to be delivered asynchronously to project execution. Thus, even if the
+process is deadlocked or (purposefully or not) enters an infinite loop, it will
+get interrupted by the timer interrupt and enter the scheduler, where another
+process will then be ran. Therefore, since we know other processes can be run,
+we know that xv6 implements time-slicing

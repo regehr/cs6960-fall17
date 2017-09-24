@@ -1,0 +1,5 @@
+In all circumstances, xv6 eventually time-slices away from a CPU-bound process. in the lapicinit (7408) the LAPIC is told to periodically interrupt, allowing the kernel to trap and schedule other processes. While xv6 concedes it doesn't care about precise timekeeping (it would need to be calibrated using an external source), we can assume that the LAPIC eventually always sends a timer interrupt, now matter how inaccurate its timekeeping. 
+
+The only way to prevent interrupts is to use the cli call with either cli() (0557) or more likely pushcli() (1655), however, these are kernel mode functions and all kernel operations enable interrupts (using sti() (0563) or popcli() (1667), respectively), before moving back into user space. This means that for any CPU-bound process, if it doesn't trap into the kernel on its own (either through an invalid command or a syscall), it will trap into the kernel through the time interrupt coming from the LAPIC. 
+
+This means that the kernel with always have a change to time-slice away from a CPU-bound process and deschedule the running one and schedule something else.

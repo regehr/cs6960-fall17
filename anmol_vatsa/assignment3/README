@@ -1,0 +1,14 @@
+Author: Anmol Vatsa
+uid: u1082186
+===================================
+Assignment 3
+===================================
+1. Modify xv6 so that when a process 
+returns from main(), it effectively 
+calls exit() instead of trapping 
+and being killed.
+
+2. Determine why a long chain of pipes 
+such as "ls |  wc | wc | wc | ..." 
+can deadlock.
+
