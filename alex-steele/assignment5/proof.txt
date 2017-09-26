@@ -1,0 +1,76 @@
+Alex Steele
+
+Challenge:
+
+Prove xv6 always time-slices away from a CPU-bound process.
+
+Claim 1:
+
+On a system running xv6, each processor experiences periodic timer interrupts.
+
+Justification:
+
+- At startup, the xv6 bootloader runs entry in entry.S on the bootstrap processor.
+- entry runs main() in main.c.
+- main() in main.c runs lapicinit() and startothers().
+- startothers() starts all non-boot processors via lapicstartap().
+- All non-boot processors start at start in entryother.S.
+- From there, they jump to mpenter().
+- In mpenter(), they call lapicinit().
+- Therefore, all processes call lapicinit().
+- Within lapicinit(), the lapic's timer is set to trigger repeated, periodic
+  interrupts (see lines 67-69 in lapic.c).
+- Since this code is run by all processors, all processor's lapics are set to
+  trigger repeated, periodic interrupts.
+- Once enabled, these interrupts are never disabled anywhere else in the kernel code
+  and cannot be disabled by user processes due to the memory protections on the
+  lapic variable/IO port (this is a pretty broad assertion backed by a quick
+  grep through the code and my reading of chapter 3).
+- Therefore, as long as the system is running, these timer interrupts will
+  periodically occur.
+
+Claim 2: If a process is running when a timer interrupt occurs and some other process
+is RUNNABLE, xv6 time-slices away from the process.
+
+Justification:
+
+- If a process is running on a CPU, then it was dispatched to via proc.c's
+  scheduler(), since this is the only kernel function which jumps to process'
+  code.
+- Therefore, interrupts are enabled, since scheduler() enables interrupts at line 331, no
+  code in the kernel disables interrupts via pushcli() without a re-enabling them
+  via popcli(), and no user process can disable interrupts due to processor protections.
+- Moreover, the running process' state is RUNNING, since scheduler() always sets
+  a process' state to RUNNING before dispatching, and memory protections prevent
+  processes from changing this.
+- Also, if interrupts are enabled, a timer interrupt will cause a jump to the
+  appropriate trap vector, which will jump to alltraps in trapasm.S, which will
+  in turn jump to trap() in trap.c.
+- If line 105 of trap() is not reached after the timer interrupt, then the
+  system either shutdown unexpectedly or exit() was called. In either case, any
+  previously running process will no longer run, so the claim holds.
+- If line 105 of trap() is reached after the timer interrupt, and if a user
+  process had been running before the interrupt, then the process must be in
+  the RUNNING state. This follows since we know its state must be RUNNING upon
+  entry to trap(), and no code within trap() changes its state.
+- Therefore, yield() will be called, the process' state will be changed to RUNNABLE,
+  and execution will return to the loop in proc.c's scheduler() function.
+- Because scheduler continues from its previous iteration and loops around all processes
+  in the process table, the loop will visit the previously running process last after
+  every other process in the table.
+- Therefore, if any other process has state RUNNABLE, it will be scheduled before the
+  previously running process.
+- Claim 2 then holds: xv6 will time-slice away from the interrupted process if any
+  other process is runnable.
+
+Conclusion: From claims 1 and 2, it follows that xv6 eventually time-slices away
+from a CPU-bound process so long as any other process on the machine is RUNNABLE.
+
+Caveat: I've made a number of assumptions, including that:
+
+- The lapic eventually delivers timer interrupts as it's programmed to do.
+- Within the kernel, interrupts are only disabled via pushcli(). They may
+  be disabled elsewhere, hence invalidating my claims above, but I didn't
+  find any place where this occurs.
+- xv6's memory protections have no vulnerabilities allowing a user process
+  to write to the kernel's memory. 
