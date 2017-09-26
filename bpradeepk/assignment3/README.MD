@@ -12,4 +12,4 @@ Modified unlib.c and Makefile, so that any c program gets called using exit_main
 It looks like, xv6 shell sh.c has a buffer array of 100 chars (main() in sh.c) and 
 its breaking up long commands into shorter commands. So, when we write long commands like
 'ls -l | wc | wc.....|wc..|wc', then its being split into two commands. If we end up having 'wc' as the first command when split,
-when it will just wait on input which appears like a deadlock for us.
+then it will just wait on input which appears like a deadlock for us.
