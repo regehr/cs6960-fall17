@@ -1,0 +1,87 @@
+To prove that xv6 is a time-slicing operating system, we must show that timer
+interrupts will be sent while interrupts are enabled on a core, and that the
+scheduler will subsequently schedule a new process on that core.
+
+
+
+Claim: Timer interrupts will be delivered to each core eventually.
+
+Justification:
+
+The lapicinit() function sets up the LAPIC for each processor, including
+periodic timer interrupts. This function is called from the entry point of the
+kernel, so we know it is called. It is assumed that this code is correct, so
+the LAPIC is correctly set up and timer interrupts will eventually be delivered
+on each core.
+
+
+
+Claim: Interrupts are never permanently disabled
+
+Justification:
+
+xv6 disables interrupts for certain things (e.g. acquiring spinlocks, obtaining
+the current process on a CPU). If interrupts were ever permanently disabled,
+then a core might not receive a timer interrupt, and xv6 could not be
+considered secure against an "adversary" process.  However, since there are not
+many places where xv6 disables interrupts, it is fairly easy to show that
+interrupts are never permanently disabled.
+
+spinlock.c: disabled on spinlock acquire, enabled on spinlock release. We 
+  assume that the xv6 kernel uses spinlocks so as not to cause deadlock, so 
+  this file never permanently disables interrupts.
+
+vm.c: In switchuvm(), interrupts are disabled at the start of the function, and
+  re-enabled at the end of the function, so interrupts are re-enabled here as
+  well.
+
+proc.c: In myproc(), same case as switchuvm(). Interrupts are disabled and then
+  re-enabled. 
+
+Since we can show that everywhere we disable interrupts we re-enable them, this
+means that there will be some point in time where interrupts are enabled and
+core receives a timer interrupt.
+
+
+
+Claim: When a timer interrupt is delivered to a core, a new process will be run
+on that core.
+
+Justification: 
+
+The tvinit() function in trap.c  sets up the IDT for all of the processors to
+point to the corresponding entries in the vector array. Both of these functions
+are called from the main() function, which is the entry point for the kernel,
+so they are indeed executed.
+
+The vector array (vectors[]) is defined in vectors.S. Each entry in the vectors
+array is the address of the entry point to start handling that vector. Each
+vector entry point pushes some information about which interrupt was triggered,
+then jumps to alltraps() (defined in trapasm.S), which calls the trap()
+function (defined in trap.c) after constructing the trap frame.
+
+When the trap() function is called, the trap number will be checked. The number
+will correspond to IRQ_TIMER. lapiceoi() is called to acknowledge the
+interrupt, and then the logic after the switch statement triggers.
+
+If the trap number was IRQ_TIMER (which it was, in this case), and the state of
+the current process is RUNNING (which would also be the case for a process
+running on a core), then yield() is called to yield the cpu.
+
+The yield() function sets our process's state to RUNNABLE and calls sched to
+schedule.
+
+sched() switches contexts to the cpu's scheduler() function, which searches the
+process table for the next runnable process. Another process should be found
+that we can run, and we set up the new process and begin running it.
+
+
+
+Conclusion:
+
+A process cannot escape being scheduled, because the timer interrupt is set up
+by LAPIC to be delivered asynchronously to program execution. Thus, even if the
+process is deadlocked or (purposefully or not) enters an infinite loop, it will
+get interrupted by the timer interrupt and enter the scheduler, where another
+process will then be ran. Therefore, since we know other processes can be run,
+we know that xv6 implements time-slicing

@@ -1,0 +1,35 @@
+I attempted to do problem 2, which was to try to get a read() system call to
+write out of bounds or into a mapped page and trigger a kernel panic.
+Unfortunately (or fortunately, depending on how you look at it), I was unable
+to trigger such an error. When I looked at the kernel's code for error
+checking, it was plain to see why.
+
+Whenever sys_read is called, the three arguments are validated by argfd(),
+argptr(), and argint(), respectively. The user buffer argument is validated by
+argptr(), and argptr has a conditional that does bounds checking:
+
+  if(size < 0 || (uint)i >= curproc->sz || (uint)i+size > curproc->sz)
+    return -1;
+
+where "i" is the address given and "size" is the size of the memory area.
+
+This means that any buffer argument passed to the read() system call will be
+checked to make sure that it is within the address bounds of the process. This
+means that (unless I'm missing something and they've left some unmapped border
+page in the process's memory) you can't kill the kernel by passing in bad
+address/size arguments to read().
+
+You can, however, write arbitrarily to any memory within your address space,
+including the .text section and address 0. You can't actually dereference the
+null pointer from user mode without getting a segfault, but you CAN get the
+kernel to write to it by passing (void *)0 as the pointer in your read() call.
+
+Linux appears to have much more stringent bounds-checking on pointers (as one
+would expect). When trying the same sort of test program on Linux (trying to
+write data into a function using the read() call), Linux returns an error code.
+
+We could definitely try to implement some more advanced bounds checking for the
+read() system call. But honestly, that sounds fairly boring. Still, it was
+interesting to see the rudimentary bounds-checking that xv6 does to at least
+ensure that the kernel doesn't go writing into pages that aren't in our address
+space at all.
