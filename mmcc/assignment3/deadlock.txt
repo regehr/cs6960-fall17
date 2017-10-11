@@ -1,0 +1,3 @@
+This deadlock can occur because a program later in the pipeline can wait
+forever for the previous program to close its stdout (which the process
+mentioned first uses as its stdin).
