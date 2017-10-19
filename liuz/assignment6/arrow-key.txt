@@ -1,0 +1,11 @@
+Q: Explain how the arrow keys change the cursor position.
+
+According to implementation of the kbdgetc() from kbd.c, and consoleintr() from
+console.c, xv6 operating system does not have any mechanism for handling the
+KEY_UP, KEY_DN, KEY_LF, and KEY_RT (although they gived the arrow keys names
+in kbd.h). Each time when arrow key pressed, xv6 directly print it to the
+console.c via the calls of consputc(). These special characters pass through
+qemu without any additional actions. And the (gnome) terminal emulator
+prints these special characters, intepreting as arrow moving commands. The
+operating system does not know the cursor moves.
+
