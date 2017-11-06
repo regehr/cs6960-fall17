@@ -1,0 +1,12 @@
+
+Why do the arrow keys move the cursor?
+
+First, we have generally been running xv6 in a terminal (IE make qemu-nox) -- this doesn't use the cga stuff at all, only the uart stuff.  The tl;dr is that the arrow keys in a terminal produce a weird escape sequence, and xv6 is sending that escape sequence right through to the terminal input again, and that sequence matches the terminal escape sequences for moving the cursor.
+
+When we type the up arrow key on most terminal emulators, it produces not just one character, but the following sequence: ESC, [, A.  Normally that sequence is read and handled by an application receiving terminal input.  In this case it goes to the XV6 kernel.  It goes through the kbd.c  kbdgetc function, but those three characters are not one of the special cases, so they pass through unchanged.  They then are in the consoleintr function in console.c, where again they aren't any of the special cases, and so they flow to consputc.  Here the only key treated specially for the uart is backspace.  Everything else is put through to the uart as is, including our escape sequence.  It is also sent to the CGA, but that isn't used by qemu-nox.  When this sequence arrives at a terminal, it is interpreted as a CSI escape sequence by the terminal standard.  Specifically, CSI-A (IE ESC [ A) is interpreted as `CUU` or "move cursor up the indicated number of rows".  This sequence could have a number in it, but as it has no number the default value of 1 is used.  The shell just sees that it received the ascii characters for ESC, [, and A, and tries to launch a program with those characters in the name.  This doesn't work, of course, so we get an error.
+
+We can also type other ANSI escape sequences and see them be passed through -- for example we can physically type the sequence ESC [ 3 2 m h e l l o, and see a green "hello" appear in the terminal.
+
+If we use `make qemu` and allow it to make an X screen, that screen will be connected to XV6 as some graphics hardware that supports CGA.  So the CGA commands work on it.  When we type the arrow keys in this condition, we instead get some greek letters.  This must be how CGA interprets the weird sequence.
+
+I would make the proof better, and maybe make ^C do something, but I've been under the gun for a presentation this weekend, so I'm not going to make it any better right now.
