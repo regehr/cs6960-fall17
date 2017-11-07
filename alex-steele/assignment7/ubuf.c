@@ -42,8 +42,6 @@ int buf_put(char *data, int len)
   int woff = (load(&ring->woff) + 3) & ~0x03;
   int wsize;
 
-  woff = (woff + 3) & ~0x03;
-
   if (woff - roff + len > RINGSZ) {
     return -1;
   }
