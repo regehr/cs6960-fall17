@@ -32,7 +32,7 @@ allocshared(void)
   for (i = 0; i < NSHARED; i++) {
     mem = kalloc();
     if (!mem) {
-      while (--i) {
+      while (--i >= 0) {
         kfree(P2V(shared_addrs[i]));
         shared_addrs[i] = 0;
       }
