@@ -20,7 +20,5 @@
 #define SYS_link   19
 #define SYS_mkdir  20
 #define SYS_close  21
-#define SYS_buf_setup 22
-#define SYS_buf_put 23
-#define SYS_buf_get 24
+#define SYS_mapshared 22
 

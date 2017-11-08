@@ -29,7 +29,5 @@ SYSCALL(getpid)
 SYSCALL(sbrk)
 SYSCALL(sleep)
 SYSCALL(uptime)
-SYSCALL(buf_setup)
-SYSCALL(buf_put)
-SYSCALL(buf_get)
+SYSCALL(mapshared)
 

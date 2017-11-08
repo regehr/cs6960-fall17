@@ -104,10 +104,11 @@ extern int sys_wait(void);
 extern int sys_write(void);
 extern int sys_uptime(void);
 
-// Shared buffer system calls
-extern int sys_buf_setup(void);
-extern int sys_buf_put(void);
-extern int sys_buf_get(void);
+int
+sys_mapshared(void)
+{
+  return mapshared(myproc()->pgdir);
+}
 
 static int (*syscalls[])(void) = {
 [SYS_fork]    sys_fork,
@@ -131,9 +132,7 @@ static int (*syscalls[])(void) = {
 [SYS_link]    sys_link,
 [SYS_mkdir]   sys_mkdir,
 [SYS_close]   sys_close,
-[SYS_buf_setup] sys_buf_setup,
-[SYS_buf_put] sys_buf_put,
-[SYS_buf_get] sys_buf_get
+[SYS_mapshared] sys_mapshared
 };
 
 void

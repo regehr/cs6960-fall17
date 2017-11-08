@@ -10,11 +10,6 @@ struct sleeplock;
 struct stat;
 struct superblock;
 
-// Shared memory buffer
-int buf_setup(void);
-int buf_put(char *data, int len);
-int buf_get(char *data, int *len, int maxlen);
-
 // bio.c
 void            binit(void);
 struct buf*     bread(uint, uint);
@@ -176,6 +171,7 @@ void            uartintr(void);
 void            uartputc(int);
 
 // vm.c
+int             mapshared(pde_t*);
 void            seginit(void);
 void            kvmalloc(void);
 pde_t*          setupkvm(void);

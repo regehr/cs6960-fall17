@@ -23,11 +23,8 @@ int getpid(void);
 char* sbrk(int);
 int sleep(int);
 int uptime(void);
+void *mapshared(void);
 
-// Shared buffer system calls
-int buf_setup(void);
-int buf_put(char*, int);
-int buf_get(char*, int*, int);
 
 // ulib.c
 int stat(char*, struct stat*);
