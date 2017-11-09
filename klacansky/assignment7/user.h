@@ -47,5 +47,5 @@ int mutexrelease(struct mutex *);
 int mutexdestroy(struct mutex *);
 
 // buf.c
-int buf_put(char *data, size_t len);
-int buf_get(char *data, size_t *len, size_t maxlen);
+int buf_put(char *data, uint len);
+int buf_get(char *data, uint *len, uint maxlen);

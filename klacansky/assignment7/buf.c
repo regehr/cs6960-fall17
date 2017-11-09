@@ -17,7 +17,7 @@ s_memcpy(char *const restrict dst, char const *const restrict src, int const cou
 
 
 int
-buf_put(char *data, size_t len)
+buf_put(char *data, uint len)
 {
         uint *const nread = (uint *)BUF_BASE;
         uint *const nwrite = (uint *)(BUF_BASE + sizeof *nread);
@@ -36,7 +36,7 @@ buf_put(char *data, size_t len)
 
 
 int
-buf_get(char *data, size_t *len, size_t maxlen)
+buf_get(char *data, uint *len, uint maxlen)
 {
         uint *const nread = (uint *)BUF_BASE;
         uint *const nwrite = (uint *)(BUF_BASE + sizeof *nread);

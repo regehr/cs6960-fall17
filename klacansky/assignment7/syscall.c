@@ -150,48 +150,48 @@ syscall(void)
 
 struct {
         struct spinlock lock;
-        uint setup_done;
+        char *base_page;
+        char *pages[BUF_SIZE/PGSIZE];
 } buf;
 
-// TODO: not sure how to unmap pages with the xv6 functions
 // setup shared memory ring buffer
 int
 sys_buf_setup(void)
 {
-        acquire(&buf.lock);
-
-        char *base_page = 0;
-        char *pages[BUF_SIZE/PGSIZE] = {0};
-        
-        if (buf.setup_done)
-                goto err;
-
+        pte_t *walkpgdir(pde_t *pgdir, const void *va, int alloc);
         int mappages(pde_t *pgdir, void *va, uint size, uint pa, int perm);
 
+        // test if we already mapped shared buffer
+        // if we map it again the kernel would panic in mappages
+        if (walkpgdir(myproc()->pgdir, (void *)BUF_BASE, 0) != 0)
+                return -1;
+
+        acquire(&buf.lock);
+
+        // allocate physical memory if not yet done
+        if (buf.base_page == 0) {
+                if ((buf.base_page = kalloc()) == 0)
+                        panic("buf_setup: kalloc failed");
+
+                for (int i = 0; i < NELEM(buf.pages); ++i)
+                        if ((buf.pages[i] = kalloc()) == 0)
+                                panic("buf_setup: kalloc failed");
+        }
+
+
         // map page for bookkeeping data
-        base_page = kalloc();
-        if (base_page == 0)
-                goto err;
-        if (mappages(myproc()->pgdir, (void *)BUF_BASE, PGSIZE, V2P(base_page), PTE_W | PTE_U) == -1)
-                goto err;
+        if (mappages(myproc()->pgdir, (void *)BUF_BASE, PGSIZE, V2P(buf.base_page), PTE_W | PTE_U) == -1)
+                panic("buf_setup: mapping base page failed");
         memset((void *)BUF_BASE, 0, PGSIZE); // zero out nread and nwrite
 
         // map 8 pages for ring buffer data twice (for wrapping)
-        for (int i = 0; i < NELEM(pages); ++i) {
-                char *page = kalloc();
-                if (page == 0)
-                        goto err;
-                if (mappages(myproc()->pgdir, (void *)(BUF_DATA + i*PGSIZE), PGSIZE, V2P(page), PTE_W | PTE_U) == -1)
-                        goto err;
-                if (mappages(myproc()->pgdir, (void *)(BUF_DATA + (i + NELEM(pages))*PGSIZE), PGSIZE, V2P(page), PTE_W | PTE_U) == -1)
-                        goto err;
+        for (int i = 0; i < NELEM(buf.pages); ++i) {
+                if (mappages(myproc()->pgdir, (void *)(BUF_DATA + i*PGSIZE), PGSIZE, V2P(buf.pages[i]), PTE_W | PTE_U) == -1)
+                        panic("buf_setup: mapping data page failed");
+                if (mappages(myproc()->pgdir, (void *)(BUF_DATA + (i + NELEM(buf.pages))*PGSIZE), PGSIZE, V2P(buf.pages[i]), PTE_W | PTE_U) == -1)
+                        panic("buf_setup: mapping wrap page failed");
         }
 
-        buf.setup_done = 1;
         release(&buf.lock);
         return 0;
-err:
-        if (base_page) kfree(base_page);
-        release(&buf.lock);
-        return -1;
 }
