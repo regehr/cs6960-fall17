@@ -10,16 +10,16 @@ static struct {
     char data[BUFSIZE];
 } *ringbuf;
 
-static int min(int a, int b) {
+static inline int min(int a, int b) {
     return a < b ? a : b;
 }
 
-static int atomic_load(int* x) {
+static inline int atomic_load(int* x) {
     return __atomic_load_n(x, __ATOMIC_SEQ_CST);
 }
 
-static void atomic_store(int* x, int val) {
-    return __atomic_store_n(x, val, __ATOMIC_SEQ_CST);
+static inline void atomic_store(int* x, int val) {
+    __atomic_store_n(x, val, __ATOMIC_SEQ_CST);
 }
 
 int buf_setup(void) {
@@ -29,6 +29,10 @@ int buf_setup(void) {
     return 0;
 }
 
+// The reason we want to align read write pointer to sizeof(int) is because
+// we don't want to wrap the integer for message size or fail to have enough
+// space for it as well. This is required for both read and write side since
+// either side may leave a unaligned pointer.
 int buf_put(char* data, int len) {
     int nread = atomic_load(&(ringbuf->nread));
     int nwrite = (atomic_load(&(ringbuf->nwrite)) + 3) & ~0x03;
@@ -56,7 +60,7 @@ int buf_get(char *data, int *len, int maxlen) {
     int tmp_len;
     memmove(&tmp_len, &ringbuf->data[nread % BUFSIZE], sizeof(int));
     if (tmp_len > maxlen) return -2;
-    nread += 4;
+    nread += sizeof(int);
 
     int bytes_to_read = min(tmp_len, BUFSIZE - (nread % BUFSIZE));
     memmove(data, &ringbuf->data[nread % BUFSIZE], bytes_to_read);
