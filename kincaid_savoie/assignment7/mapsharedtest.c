@@ -15,7 +15,7 @@ main(void)
 {
   int pid = fork();
 
-  if (pid == 0) {
+  if (pid != 0) {
     // Map a shared page
     char *data = mapshared();
     if (!data) {
@@ -38,7 +38,7 @@ main(void)
     memmove(data, &in_struct, sizeof(test));
   } else {
     // Make sure we go after the parent.
-    sleep(500);
+    sleep(250);
 
     // Map a shared page
     char *data = mapshared();
@@ -59,12 +59,14 @@ main(void)
 
     memmove(&out_struct, data, sizeof(test));
 
+    // Make sure the data in the struct is correct.
     if (out_struct.number != 5 || out_struct.letter != 'd') {
       printf(2, "Data was corrupted during transfer!\n");
       exit();
+    } else {
+      printf(1, "Test successful!\n");
+      exit();
     }
-
-    exit();
   }
 
   wait();
