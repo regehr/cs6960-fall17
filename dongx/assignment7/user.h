@@ -23,10 +23,6 @@ int getpid(void);
 char* sbrk(int);
 int sleep(int);
 int uptime(void);
-int mutex_create(void);
-int mutex_acquire(int);
-int mutex_release(int);
-int mutex_destroy(int);
 void* setup_shared(void);
 
 // ulib.c

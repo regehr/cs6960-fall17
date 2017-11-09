@@ -134,13 +134,6 @@ void            release(struct spinlock*);
 void            pushcli(void);
 void            popcli(void);
 
-// mutex.c
-void            mutable_init(void);
-int             mutex_create(void);
-int             mutex_acquire(int);
-int             mutex_release(int);
-int             mutex_destroy(int);
-
 // sleeplock.c
 void            acquiresleep(struct sleeplock*);
 void            releasesleep(struct sleeplock*);

@@ -12,7 +12,6 @@ OBJS = \
 	log.o\
 	main.o\
 	mp.o\
-	mutex.o\
 	picirq.o\
 	pipe.o\
 	proc.o\
@@ -22,7 +21,6 @@ OBJS = \
 	swtch.o\
 	syscall.o\
 	sysfile.o\
-	sysmutex.o\
 	sysproc.o\
 	trapasm.o\
 	trap.o\
@@ -164,9 +162,6 @@ UPROGS=\
 	_cat\
 	_echo\
 	_forktest\
-	_pipetest\
-	_ringbuftest\
-	_pipespeed\
 	_grep\
 	_init\
 	_kill\
@@ -246,7 +241,7 @@ qemu-nox-gdb: fs.img xv6.img .gdbinit
 # check in that version.
 
 EXTRA=\
-	mkfs.c ulib.c user.h cat.c echo.c pipetest.c ringbuftest.c pipespeed.c forktest.c grep.c kill.c\
+	mkfs.c ulib.c user.h cat.c echo.c forktest.c grep.c kill.c\
 	ln.c ls.c mkdir.c rm.c stressfs.c usertests.c wc.c zombie.c\
 	printf.c umalloc.c ubuf.c\
 	README dot-bochsrc *.pl toc.* runoff runoff1 runoff.list\

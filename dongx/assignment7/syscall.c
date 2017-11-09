@@ -103,10 +103,6 @@ extern int sys_unlink(void);
 extern int sys_wait(void);
 extern int sys_write(void);
 extern int sys_uptime(void);
-extern int sys_mutex_create(void);
-extern int sys_mutex_acquire(void);
-extern int sys_mutex_release(void);
-extern int sys_mutex_destroy(void);
 
 int
 sys_setup_shared(void)
@@ -136,10 +132,6 @@ static int (*syscalls[])(void) = {
 [SYS_link]    sys_link,
 [SYS_mkdir]   sys_mkdir,
 [SYS_close]   sys_close,
-[SYS_mutex_create]    sys_mutex_create,
-[SYS_mutex_acquire]      sys_mutex_acquire,
-[SYS_mutex_release]    sys_mutex_release,
-[SYS_mutex_destroy]   sys_mutex_destroy,
 [SYS_setup_shared]  sys_setup_shared,
 };
 
