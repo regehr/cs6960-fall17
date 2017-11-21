@@ -403,6 +403,8 @@ void init_shared_buffer(){
   if(shared_buffer_set_up_p){
     return;
   }
+  // TODO - this needs a lock
+  shared_buffer_set_up_p = 1;
   char *ptrmem = kalloc();
   if(!ptrmem){
     panic("Couldn't allocate memory for shared buffer.");
@@ -416,12 +418,12 @@ void init_shared_buffer(){
     memset(mem, 0, PGSIZE);
     shared_buffer_physical_addresses[i] = V2P(mem);
   }
-  shared_buffer_set_up_p = 1;
   return;
 }
 
 void *setup_shared_buffer(pde_t *pgdir){
   init_shared_buffer();
+
   if(mappages(pgdir,
               (void*)SHARED_REGION_BASE,
               PGSIZE,
