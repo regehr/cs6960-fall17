@@ -16,7 +16,7 @@ int main(){
     }
     char buf[BUFSIZE];
     int *len = 0;
-    ret = buf_get(buf, len, BUFSIZE);
+    while((ret = buf_get(buf, len, BUFSIZE)) == -1);
     if(0 == ret){
       printf(1, "got %s\n", buf);
     } else {
@@ -24,6 +24,7 @@ int main(){
     }
   } else if(pid >0){
     // parent
+    sleep(100);
     int ret = buf_setup();
     if(0 != ret){
       printf(1, "error setting up buf in parent\n");
@@ -35,6 +36,7 @@ int main(){
     } else {
       printf(1, "error sending\n");
     }
+    wait();
   } else {
     // error
     printf(1, "Error forking\n");
