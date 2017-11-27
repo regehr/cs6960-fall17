@@ -1,0 +1,5 @@
+## Determine why a long chain of pipes such as "ls | wc | wc | wc | ..." can deadlock
+
+This can happen if:
+1. a writer to a pipe never writes but keeps the connection open. This will deadlock because pipe reads are blocking if the pipe is empty and the write fd for the pipe is still open in some process.
+2. A writer has more than PIPEBUFFER_SIZE to write and the reader never reads, but keeps the read end of the pipe open.

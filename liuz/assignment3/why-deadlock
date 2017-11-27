@@ -1,0 +1,38 @@
+Determine why a long chain of pipes such as "ls |  wc | wc | wc | ..." can deadlock.
+----
+
+According to the main function from sh.c
+
+
+int
+main(void)
+{
+  static char buf[100];
+  int fd;
+
+  // Ensure that three file descriptors are open.
+  while((fd = open("console", O_RDWR)) >= 0){
+    if(fd >= 3){
+      close(fd);
+      break;
+    }
+  }
+
+  // Read and run input commands.
+  while(getcmd(buf, sizeof(buf)) >= 0){
+    if(buf[0] == 'c' && buf[1] == 'd' && buf[2] == ' '){
+      // Chdir must be called by the parent, not the child.
+      buf[strlen(buf)-1] = 0;  // chop \n
+      if(chdir(buf+3) < 0)
+        printf(2, "cannot cd %s\n", buf+3);
+      continue;
+    }
+    if(fork1() == 0)
+      runcmd(parsecmd(buf));
+    wait();
+  }
+  exit();
+}
+
+
+The shell in xv6 takes at most 100 chars for a single shell command, thus "ls | wc | wc | wc ..." fails.

@@ -65,5 +65,4 @@ struct proc {
 struct proc_queue {
     struct proc * head;             // First proc in the list
     struct proc * tail;             // Last proc in the list
-    int empty;                      // Whether the list is empty (1 -> empty, 0 -> non-empty)
 };

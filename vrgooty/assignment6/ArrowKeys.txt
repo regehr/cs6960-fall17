@@ -1,0 +1,5 @@
+In class, we looked at the code doing I/O for xv6. xv6 clearly doesn't
+treat the arrow keys as special characters. It just prints to the console.
+But the terminal emulator of the host system interprets the arrow keys
+and moves the cursor accordingly. The xv6 is completely unaware of this
+position change as it considered them just as any other character.

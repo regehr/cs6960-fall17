@@ -1,0 +1,6 @@
+// Roughly based on Dong's explanation in class
+
+The shell's command buffer is only 100 bytes long. If there's a long command
+like "ls | wc | wc | ... | wc" and the last "wc" happens to wrap around and be
+the first two bytes in the buffer, the shell will run the "ls |wc ..." and then
+run a plain "wc", which is why it seems to hang (wc is waiting for input).
