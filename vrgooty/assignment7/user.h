@@ -23,8 +23,13 @@ int getpid(void);
 char* sbrk(int);
 int sleep(int);
 int uptime(void);
-void *mapshared(void);
-
+// mutex related system calls
+int mutex_create(void);
+int mutex_destroy(int);
+int mutex_acquire(int);
+int mutex_release(int);
+//map a shared page
+void *map_shared(void);
 
 // ulib.c
 int stat(char*, struct stat*);
@@ -39,8 +44,3 @@ void* memset(void*, int, uint);
 void* malloc(uint);
 void free(void*);
 int atoi(const char*);
-
-// Ring buffer
-int buf_setup(void);
-int buf_put(char*, uint);
-int buf_get(char*, uint*, uint);
