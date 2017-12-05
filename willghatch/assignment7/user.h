@@ -23,8 +23,7 @@ int getpid(void);
 char* sbrk(int);
 int sleep(int);
 int uptime(void);
-void *mapshared(void);
-
+void *buf_setup_syscall(void);
 
 // ulib.c
 int stat(char*, struct stat*);
@@ -40,7 +39,7 @@ void* malloc(uint);
 void free(void*);
 int atoi(const char*);
 
-// Ring buffer
+// buflib.c
 int buf_setup(void);
-int buf_put(char*, uint);
-int buf_get(char*, uint*, uint);
+int buf_put(char *data, int len);
+int buf_get(char *data, int *len, int maxlen);
