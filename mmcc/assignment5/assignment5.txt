@@ -1,0 +1,24 @@
+The lapicinit() function is called by every CPU as a consequence of its
+inclusion in the mpenter() function. This ensures that a greedy process cannot
+evade timesharing on any CPU. Once lapicinit() initializes the timer, we can
+trust the hardware to provide an interrupt at IRQ 0 every 10 milliseconds.
+
+These ticks are handled by vector 32 of the IDT. Vector 32 is an interrupt gate
+rather than a trap gate, meaning that interrupts are automatically disabled
+when a CPU begins handling a tick. This prevents user-level traps, which are
+implemented as trap gates and do not automatically disable interrupts, from
+disrupting a tick.
+
+When handling a tick, trap() first increments the system's tick counter iff it
+is running on CPU 0. This involves acquiring a spinlock that protects the tick
+counter. That lock is not accessible by a userspace process, and the only other
+uses are two simple syscall implementations. The kernel then calls wakeup() to
+set all processes sleeping on the current channel as runnable.
+
+The key fact to recognize is that schedule never returns - its for-loop is
+infinite.  Therefore, when the CPU returns to the scheduler after handling the
+tick, the process that was running last will be the lowest priority, because it
+will be just behind the pointer p in schedule() that finds the next runnable
+process. That is, the process that was running was pointed to by p, but the
+tick caused it to yield to the kernel, which then called schedule(),
+incrementing p and placing that process at the back of the line.
