@@ -16,6 +16,7 @@ OBJS = \
 	picirq.o\
 	pipe.o\
 	proc.o\
+	shared.o\
 	sleeplock.o\
 	spinlock.o\
 	string.o\
@@ -158,6 +159,7 @@ mkfs: mkfs.c fs.h
 # details:
 # http://www.gnu.org/software/make/manual/html_node/Chained-Rules.html
 .PRECIOUS: %.o
+# Assignment 7 adding buf_test to the makeFile
 
 UPROGS=\
 	_cat\
@@ -173,6 +175,7 @@ UPROGS=\
 	_sh\
 	_stressfs\
 	_test\
+	_buf_test\
 	_usertests\
 	_wc\
 	_zombie\
