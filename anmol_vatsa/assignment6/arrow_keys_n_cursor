@@ -1,0 +1,3 @@
+The arrow keys on the termina attached to the xv6 make the cursor change position even though there is no support for parsing arrow keys in the keyboard interrupt handler. This happens because the terminal is attached to the xv6 over a serial connection, and every key stroke passed to the console device is also passed to the serial device. The serial device being the linux terminal handles the arrow keys properly.
+
+Pressing arrow keys does not change the cursor position in the terminal painted by xv6 though. That just prints non-printable characters, as expected from the keyboard and console interrupt handler.
